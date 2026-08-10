@@ -41,10 +41,7 @@ class AnalysisApiResolverTest {
     }
 
     private companion object {
-        /**
-         * One session per JVM: building a standalone session registers application-level
-         * IntelliJ services, so concurrent sessions in one process are not supported.
-         */
+        /** Building a session boots the IntelliJ platform, so share one across the class. */
         val resolver: CodeResolver by lazy {
             val root = Path.of(
                 requireNotNull(AnalysisApiResolverTest::class.java.getResource("/fixtures/greeter")).toURI(),

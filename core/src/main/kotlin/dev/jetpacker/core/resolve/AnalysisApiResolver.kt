@@ -7,6 +7,8 @@ import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
+import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
+import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtCallExpression
@@ -20,10 +22,18 @@ import java.nio.file.Path
 /**
  * [CodeResolver] backed by the Kotlin Analysis API in standalone (headless) mode.
  *
+ * [classpath] entries (jars or class directories) and [jdkHome] are what let calls into
+ * dependencies resolve; without them only symbols declared under [sourceRoot] are known.
+ *
  * The session is immutable: it snapshots [sourceRoot] at construction, which suits per-commit
  * indexing (docs/plan.md §6 "Staleness"). Close it to release the IntelliJ platform environment.
  */
-class AnalysisApiResolver(sourceRoot: Path, moduleName: String = "main") : CodeResolver {
+class AnalysisApiResolver(
+    sourceRoot: Path,
+    classpath: List<Path> = emptyList(),
+    jdkHome: Path? = null,
+    moduleName: String = "main",
+) : CodeResolver {
     private val disposable = Disposer.newDisposable("jetpacker.analysis")
 
     private val files: List<KtFile>
@@ -31,12 +41,40 @@ class AnalysisApiResolver(sourceRoot: Path, moduleName: String = "main") : CodeR
     init {
         val session = buildStandaloneAnalysisAPISession(disposable) {
             buildKtModuleProvider {
-                platform = JvmPlatforms.defaultJvmPlatform
+                val jvm = JvmPlatforms.defaultJvmPlatform
+                platform = jvm
+
+                val binaryModules = buildList {
+                    if (jdkHome != null) {
+                        add(
+                            addModule(
+                                buildKtSdkModule {
+                                    platform = jvm
+                                    libraryName = "jdk"
+                                    addBinaryRootsFromJdkHome(jdkHome, isJre = false)
+                                },
+                            ),
+                        )
+                    }
+                    classpath.forEach { entry ->
+                        add(
+                            addModule(
+                                buildKtLibraryModule {
+                                    platform = jvm
+                                    libraryName = entry.fileName.toString()
+                                    addBinaryRoot(entry)
+                                },
+                            ),
+                        )
+                    }
+                }
+
                 addModule(
                     buildKtSourceModule {
                         this.moduleName = moduleName
-                        platform = JvmPlatforms.defaultJvmPlatform
+                        platform = jvm
                         addSourceRoot(sourceRoot)
+                        binaryModules.forEach(::addRegularDependency)
                     },
                 )
             }
