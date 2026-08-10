@@ -1,5 +1,10 @@
 [versions]
 kotlin = "2.4.10"
+# Analysis API releases lag Kotlin; 2.3.20 is the latest proper release (see docs/plan.md §4).
+# The IntelliJ platform version must match what that Kotlin tag was built against
+# (gradle/versions.properties in JetBrains/kotlin @ v2.3.20).
+analysisApi = "2.3.20"
+intellijPlatform = "251.27812.49"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
