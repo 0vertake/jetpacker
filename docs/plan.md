@@ -170,16 +170,17 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 - ✅ **Real repo:** the Gradle Tooling API's IDEA model yields source roots and resolved dependency jars without the target build cooperating. On detekt (multi-module, convention plugins, version catalog): 132 source roots, 64 classpath entries, **29,486 distinct resolved call edges**, ~1 min end to end. The §8 "Gradle project import outside the IDE" risk is retired.
 - ✅ **Resolution completeness is measured**, not assumed (`ResolutionCoverage`). On detekt, of 36,169 call sites: **96.0% of callees resolve**, and 89.8% also carry a caller. The 4% resolution miss is the honest ceiling on graph quality; the 6.2pp attribution gap is ours to close (below).
 - ✅ Determinism and the resolve-vs-name-match distinction are under test (`ResolutionGuaranteesTest`): two independent sessions over one fixture produce identical edge lists, and a call to a name defined as both a member and an extension resolves to the member — the case surface matching gets wrong.
-- ⬜ Deferred to Phase 1, not blockers:
-  - *Caller attribution misses ~6% of resolved calls.* Calls in property initializers, `init` blocks and accessors resolve fine but have no enclosing `KtNamedFunction`, so they are dropped. The indexer's caller notion must be "enclosing declaration", not "enclosing function".
-  - *Call edges key on FQNs, which collapse overloads.* `format(Int)` and `format(String)` produce the same edge, so the §5 overload win is currently unrepresentable. Symbol identity in the indexer needs signatures, not names.
+- ✅ Both Phase 0 findings are designed out in the Phase 1 indexer: caller attribution now walks to the enclosing *declaration* (96.0%, exactly equal to the callee resolution rate — no resolved call is dropped), and symbol identity carries parameter types and extension receivers, so overloads are distinct nodes.
+- ⬜ Deferred, not blockers:
   - 64 classpath entries looks low for detekt's dependency surface — check whether the IDEA model omits some configurations before trusting it for the eval.
   - Whether AA 2.3.20 handles 2.4-only language features (fixtures are version-neutral). Pinned pair: AA 2.3.20 + IntelliJ platform 251.27812.49.
   - Dump to SQLite (was listed here; it is really the Phase 1 indexer's job).
 - **Kill-test:** if standalone AA can't resolve reliably on a real Gradle multi-module repo within the week, pivot delivery to running the engine inside IntelliJ headless (`idea.headless` / plugin + CLI runner) — same project, different host. Do not pivot to tree-sitter; that erases the wedge.
 
 **Phase 1 — Index + seeds (weeks 2–3)**
-- Full indexer (symbols, 6 edge types, FTS). Seed finder with RRF. Golden unit tests on a fixture project (fixture-based tests = JetBrains-style signal).
+- ✅ Indexer: whole declarations with file/line ranges, signature, doc line and token cost; four edge kinds (`contains`, `calls`, `extends`, `overrides`). On detekt: 11,931 symbols and 43,704 edges in ~1 min.
+  - *Deviation from §4, deliberate:* the index is held in memory rather than SQLite, and `imports` / `references-type` edges are not extracted. With resolved calls, `imports` is a coarser view of the same relation, and LocAgent's result is that a small heterogeneous edge set suffices. Both are cheap to add if an ablation shows they pay; adding them first would be guessing.
+- Seed finder with RRF. Golden unit tests on a fixture project (fixture-based tests = JetBrains-style signal).
 
 **Phase 2 — Rank + pack + CLI (weeks 3–4)**
 - PPR, knapsack, tiered fidelity, MD/JSON renderer, `pack` CLI. Determinism test: pack twice, diff empty.
