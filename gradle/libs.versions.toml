@@ -7,6 +7,10 @@ analysisApi = "2.3.20"
 intellijPlatform = "251.27812.49"
 # Keep in step with gradle/wrapper/gradle-wrapper.properties so the cached distribution is reused.
 gradleToolingApi = "9.5.0"
+jtokkit = "1.1.0"
+
+[libraries]
+jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

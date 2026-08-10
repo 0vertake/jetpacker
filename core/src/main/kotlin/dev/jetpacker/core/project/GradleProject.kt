@@ -5,8 +5,17 @@ import org.gradle.tooling.model.idea.IdeaProject
 import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency
 import java.nio.file.Path
 
-/** What the resolver needs to know about a project: where its code is, and what it compiles against. */
-data class GradleProject(val sourceRoots: List<Path>, val classpath: List<Path>)
+/**
+ * What the indexer needs to know about a project: where its code is, and what it compiles against.
+ *
+ * [testRoots] is a subset of [sourceRoots]. Keeping it saves guessing from path names later —
+ * the build already knows which source sets are tests.
+ */
+data class GradleProject(
+    val sourceRoots: List<Path>,
+    val testRoots: List<Path>,
+    val classpath: List<Path>,
+)
 
 /**
  * Reads [projectDir]'s structure through the Gradle Tooling API, flattening every module into one
@@ -21,10 +30,9 @@ fun readGradleProject(projectDir: Path): GradleProject {
     connector.connect().use { connection ->
         val modules = connection.getModel(IdeaProject::class.java).modules
 
-        val sourceRoots = modules
-            .flatMap { module -> module.contentRoots.orEmpty() }
-            .flatMap { root -> root.sourceDirectories.orEmpty() + root.testDirectories.orEmpty() }
-            .map { it.directory.toPath() }
+        val contentRoots = modules.flatMap { module -> module.contentRoots.orEmpty() }
+        val mainRoots = contentRoots.flatMap { it.sourceDirectories.orEmpty() }.map { it.directory.toPath() }
+        val testRoots = contentRoots.flatMap { it.testDirectories.orEmpty() }.map { it.directory.toPath() }
 
         val classpath = modules
             .flatMap { module -> module.dependencies.orEmpty() }
@@ -32,7 +40,8 @@ fun readGradleProject(projectDir: Path): GradleProject {
             .mapNotNull { it.file?.toPath() }
 
         return GradleProject(
-            sourceRoots = sourceRoots.distinct().sorted(),
+            sourceRoots = (mainRoots + testRoots).distinct().sorted(),
+            testRoots = testRoots.distinct().sorted(),
             classpath = classpath.distinct().sorted(),
         )
     }

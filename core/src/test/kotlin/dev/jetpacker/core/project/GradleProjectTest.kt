@@ -21,6 +21,19 @@ class GradleProjectTest {
     }
 
     @Test
+    fun `separates test source roots from production ones`() {
+        assertTrue(project.testRoots.isNotEmpty(), "expected the fixture's test roots, got none")
+        assertTrue(
+            project.testRoots.all { it in project.sourceRoots },
+            "test roots must be a subset of source roots, or they will not be indexed",
+        )
+        assertTrue(
+            project.testRoots.none { "main" in it.toString() },
+            "a main source root leaked into testRoots: ${project.testRoots}",
+        )
+    }
+
+    @Test
     fun `reads resolved external dependencies as jars`() {
         val guava = project.classpath.filter { it.name.startsWith("guava-") }
 
