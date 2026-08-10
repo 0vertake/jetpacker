@@ -30,13 +30,20 @@ class RealRepositoryResolutionTest {
             jdkHome = Path.of(System.getProperty("java.home")),
         ).use { resolver ->
             val edges = resolver.callEdges()
-            val crossFile = edges.filter { it.calleeFqName.substringBeforeLast('.') != it.callerFqName.substringBeforeLast('.') }
+            val coverage = resolver.coverage()
 
             println(
-                "resolved ${edges.size} call edges (${crossFile.size} crossing declaration boundaries) " +
-                    "from ${project.sourceRoots.size} source roots and ${project.classpath.size} classpath entries",
+                """
+                |${project.sourceRoots.size} source roots, ${project.classpath.size} classpath entries
+                |${coverage.callSites} call sites
+                |  ${coverage.resolvedCallees} callees resolved (${percent(coverage.calleeRate)})
+                |  ${coverage.attributedToCaller} attributed to a caller (${percent(coverage.callerRate)})
+                |${edges.size} distinct call edges
+                """.trimMargin(),
             )
             assertTrue(edges.isNotEmpty(), "resolved no calls at all in $repo")
         }
     }
+
+    private fun percent(rate: Double): String = "%.1f%%".format(rate * 100)
 }
