@@ -166,7 +166,8 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 
 **Phase 0 — Feasibility spike (week 1)** — *resolution gate ✅ passed on a fixture (Aug 2026)*
 - ✅ Standalone AA stands up headless and resolves all three kill-test queries on a fixture built from the resolve-heavy cases: call target behind an aliased import, callers of an interface method invoked through injection, implementations of an interface (`core` module, `AnalysisApiResolverTest`). AA 2.3.20 runs fine inside a Kotlin 2.4.10 / JVM 21 Gradle build.
-- ⬜ Remaining before the gate is fully closed: run the same three queries on a **real Gradle multi-module repo** (detekt or ktlint) with an external-dependency classpath, and dump to SQLite. Fixture-only resolution needs no classpath, so it does *not* yet test the risk in §8 (Gradle classpath extraction).
+- ✅ Resolution reaches *through binary dependencies*: given a classpath and JDK home, calls resolve into the Kotlin stdlib and into a plain Java library (Guava), confirming the Java interop assumed in §4.
+- ⬜ Remaining before the gate is fully closed: **extract that classpath from a real Gradle multi-module repo** (detekt or ktlint) via the Tooling API and run the queries there, then dump to SQLite. The engine can consume a classpath now; obtaining one outside the IDE is the untested half of the §8 risk.
 - ⬜ Still open: whether AA 2.3.20 correctly analyzes sources using 2.4-only language features (fixture is version-neutral). Pinned pair for now: AA 2.3.20 + IntelliJ platform 251.27812.49.
 - **Kill-test:** if standalone AA can't resolve reliably on a real Gradle multi-module repo within the week, pivot delivery to running the engine inside IntelliJ headless (`idea.headless` / plugin + CLI runner) — same project, different host. Do not pivot to tree-sitter; that erases the wedge.
 
