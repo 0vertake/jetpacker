@@ -46,7 +46,7 @@ class AnalysisApiResolverTest {
             val root = Path.of(
                 requireNotNull(AnalysisApiResolverTest::class.java.getResource("/fixtures/greeter")).toURI(),
             )
-            AnalysisApiResolver(root)
+            AnalysisApiResolver(listOf(root))
         }
     }
 }
