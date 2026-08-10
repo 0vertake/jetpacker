@@ -164,9 +164,10 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 
 ## 7. Milestones & kill-tests
 
-**Phase 0 — Feasibility spike (week 1)** ✅/❌ gate — *repo scaffolding done (Aug 2026); this is next*
-- Stand up `analysis-api-standalone-for-ide` on one Kotlin-SWE-bench repo (detekt or ktlint). Resolve: a call target, all callers of a function, implementations of an interface. Dump to SQLite.
-- Also verify: AA version skew (2.3.x artifact vs 2.4.x target repos) doesn't break resolution, and pick the pinned AA/Kotlin pair.
+**Phase 0 — Feasibility spike (week 1)** — *resolution gate ✅ passed on a fixture (Aug 2026)*
+- ✅ Standalone AA stands up headless and resolves all three kill-test queries on a fixture built from the resolve-heavy cases: call target behind an aliased import, callers of an interface method invoked through injection, implementations of an interface (`core` module, `AnalysisApiResolverTest`). AA 2.3.20 runs fine inside a Kotlin 2.4.10 / JVM 21 Gradle build.
+- ⬜ Remaining before the gate is fully closed: run the same three queries on a **real Gradle multi-module repo** (detekt or ktlint) with an external-dependency classpath, and dump to SQLite. Fixture-only resolution needs no classpath, so it does *not* yet test the risk in §8 (Gradle classpath extraction).
+- ⬜ Still open: whether AA 2.3.20 correctly analyzes sources using 2.4-only language features (fixture is version-neutral). Pinned pair for now: AA 2.3.20 + IntelliJ platform 251.27812.49.
 - **Kill-test:** if standalone AA can't resolve reliably on a real Gradle multi-module repo within the week, pivot delivery to running the engine inside IntelliJ headless (`idea.headless` / plugin + CLI runner) — same project, different host. Do not pivot to tree-sitter; that erases the wedge.
 
 **Phase 1 — Index + seeds (weeks 2–3)**

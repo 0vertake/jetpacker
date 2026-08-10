@@ -13,9 +13,8 @@ benchmark design, milestones, and kill-tests.
 ## Stack
 
 - Kotlin 2.4.x on JVM 21, Gradle (Kotlin DSL), version catalog in `gradle/libs.versions.toml`
-- Semantic resolution: Kotlin Analysis API Standalone (`analysis-api-standalone-for-ide`
-  from the JetBrains `intellij-dependencies` Maven repo). Experimental API; its releases
-  lag Kotlin versions.
+- Semantic resolution: Kotlin Analysis API Standalone (`analysis-api-standalone-for-ide`).
+  Experimental API; its releases lag Kotlin versions.
 - Storage: SQLite (sqlite-jdbc) + FTS5. Token counting: jtokkit.
 - Eval tasks: Kotlin-SWE-bench (JetBrains' Kotlin Benchmark, Harbor task format).
 
@@ -31,6 +30,23 @@ benchmark design, milestones, and kill-tests.
 - Build + test everything: `./gradlew build`
 - Tests only: `./gradlew test`
 - One module: `./gradlew :core:test`
+
+## Analysis API dependency wiring (hard-won; don't "simplify" it)
+
+The Analysis API is not on Maven Central ([KT-56203](https://youtrack.jetbrains.com/issue/KT-56203)),
+and its dependency set is not self-describing:
+
+- `org.jetbrains.kotlin:*-for-ide` come from `packages.jetbrains.team/.../intellij-dependencies`;
+  `com.jetbrains.intellij.platform:*` and `.java:*` come from `intellij-repository/releases`.
+  Two different repos — a missing one shows up as unresolved `com.jetbrains.intellij.*`.
+- Those artifacts are declared `isTransitive = false` on purpose: their poms reference
+  unpublished internal coordinates. Every runtime dep is therefore listed by hand, mirroring
+  `google/ksp`'s `kotlin-analysis-api/build.gradle.kts` (the canonical production consumer).
+- Coroutines must be `org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core-jvm`
+  (patched); vanilla coroutines lacks `kotlinx.coroutines.internal.intellij.IntellijCoroutines`
+  and fails only at runtime.
+- Missing deps surface as `NoClassDefFoundError` during a test run, never at compile time.
+  Read the class name out of `core/build/test-results/` and add the artifact.
 
 ## Conventions
 
