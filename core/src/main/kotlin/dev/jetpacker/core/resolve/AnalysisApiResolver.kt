@@ -6,6 +6,8 @@ import org.jetbrains.kotlin.analysis.api.resolution.successfulFunctionCallOrNull
 import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
@@ -85,28 +87,54 @@ class AnalysisApiResolver(
         files = session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>()
     }
 
-    override fun callEdges(): List<CallEdge> =
-        files
-            .flatMap { file ->
-                val calls = file.collectDescendantsOfType<KtCallExpression>()
-                analyze(file) {
-                    calls.mapNotNull { call ->
-                        val callee = call.resolveToCall()
-                            ?.successfulFunctionCallOrNull()
-                            ?.symbol
-                            ?.callableId
-                            ?.asSingleFqName()
-                            ?.asString()
-                            ?: return@mapNotNull null
-                        val caller = call.getStrictParentOfType<KtNamedFunction>()
-                            ?.fqName
-                            ?.asString()
-                            ?: return@mapNotNull null
-                        CallEdge(caller, callee)
-                    }
+    private val calls: CallAnalysis by lazy { analyzeCalls() }
+
+    override fun callEdges(): List<CallEdge> = calls.edges
+
+    override fun coverage(): ResolutionCoverage = calls.coverage
+
+    private class CallAnalysis(val edges: List<CallEdge>, val coverage: ResolutionCoverage)
+
+    private fun analyzeCalls(): CallAnalysis {
+        var callSites = 0
+        var resolvedCallees = 0
+        var attributedToCaller = 0
+        val edges = mutableListOf<CallEdge>()
+
+        for (file in files) {
+            val callExpressions = file.collectDescendantsOfType<KtCallExpression>()
+            analyze(file) {
+                for (call in callExpressions) {
+                    callSites++
+                    val callee = call.resolveToCall()
+                        ?.successfulFunctionCallOrNull()
+                        ?.symbol
+                        ?.let(::calleeFqName)
+                        ?: continue
+                    resolvedCallees++
+                    // Calls outside a named function (property initializers, init blocks,
+                    // accessors) resolve fine but have no caller to attribute them to yet.
+                    val caller = call.getStrictParentOfType<KtNamedFunction>()?.fqName?.asString() ?: continue
+                    attributedToCaller++
+                    edges += CallEdge(caller, callee)
                 }
-            }.distinct()
-            .sortedWith(compareBy({ it.callerFqName }, { it.calleeFqName }))
+            }
+        }
+
+        return CallAnalysis(
+            edges = edges.distinct().sortedWith(compareBy({ it.callerFqName }, { it.calleeFqName })),
+            coverage = ResolutionCoverage(callSites, resolvedCallees, attributedToCaller),
+        )
+    }
+
+    /**
+     * Constructors have no [callableId] of their own, so instantiation is named after the class
+     * it produces. Dropping these would hide every "who creates this type" edge.
+     */
+    private fun calleeFqName(symbol: KaFunctionSymbol): String? = when (symbol) {
+        is KaConstructorSymbol -> symbol.containingClassId?.asFqNameString()?.plus(".$CONSTRUCTOR")
+        else -> symbol.callableId?.asSingleFqName()?.asString()
+    }
 
     override fun implementationsOf(fqName: String): List<String> =
         files
@@ -125,4 +153,9 @@ class AnalysisApiResolver(
             .sorted()
 
     override fun close() = Disposer.dispose(disposable)
+
+    companion object {
+        /** Suffix marking a call edge that targets a constructor rather than a named function. */
+        const val CONSTRUCTOR = "<init>"
+    }
 }
