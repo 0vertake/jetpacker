@@ -164,11 +164,15 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 
 ## 7. Milestones & kill-tests
 
-**Phase 0 — Feasibility spike (week 1)** — *resolution gate ✅ passed on a fixture (Aug 2026)*
+**Phase 0 — Feasibility spike (week 1)** — *✅ gate closed (Aug 2026); no pivot needed*
 - ✅ Standalone AA stands up headless and resolves all three kill-test queries on a fixture built from the resolve-heavy cases: call target behind an aliased import, callers of an interface method invoked through injection, implementations of an interface (`core` module, `AnalysisApiResolverTest`). AA 2.3.20 runs fine inside a Kotlin 2.4.10 / JVM 21 Gradle build.
 - ✅ Resolution reaches *through binary dependencies*: given a classpath and JDK home, calls resolve into the Kotlin stdlib and into a plain Java library (Guava), confirming the Java interop assumed in §4.
-- ⬜ Remaining before the gate is fully closed: **extract that classpath from a real Gradle multi-module repo** (detekt or ktlint) via the Tooling API and run the queries there, then dump to SQLite. The engine can consume a classpath now; obtaining one outside the IDE is the untested half of the §8 risk.
-- ⬜ Still open: whether AA 2.3.20 correctly analyzes sources using 2.4-only language features (fixture is version-neutral). Pinned pair for now: AA 2.3.20 + IntelliJ platform 251.27812.49.
+- ✅ **Real repo:** the Gradle Tooling API's IDEA model yields source roots and resolved dependency jars without the target build cooperating. On detekt (multi-module, convention plugins, version catalog): 132 source roots, 64 classpath entries, **27,047 distinct resolved call edges**, ~4 min end to end. The §8 "Gradle project import outside the IDE" risk is retired.
+- ⬜ Deferred to Phase 1, not blockers:
+  - *Resolution completeness is unmeasured.* `callEdges()` drops unresolved calls silently, so we know resolution works at scale but not what fraction of call sites it misses. The indexer needs this number; measure it there.
+  - 64 classpath entries looks low for detekt's dependency surface — check whether the IDEA model omits some configurations before trusting it for the eval.
+  - Whether AA 2.3.20 handles 2.4-only language features (fixtures are version-neutral). Pinned pair: AA 2.3.20 + IntelliJ platform 251.27812.49.
+  - Dump to SQLite (was listed here; it is really the Phase 1 indexer's job).
 - **Kill-test:** if standalone AA can't resolve reliably on a real Gradle multi-module repo within the week, pivot delivery to running the engine inside IntelliJ headless (`idea.headless` / plugin + CLI runner) — same project, different host. Do not pivot to tree-sitter; that erases the wedge.
 
 **Phase 1 — Index + seeds (weeks 2–3)**

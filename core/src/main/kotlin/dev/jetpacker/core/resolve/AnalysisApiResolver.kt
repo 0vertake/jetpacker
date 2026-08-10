@@ -23,13 +23,16 @@ import java.nio.file.Path
  * [CodeResolver] backed by the Kotlin Analysis API in standalone (headless) mode.
  *
  * [classpath] entries (jars or class directories) and [jdkHome] are what let calls into
- * dependencies resolve; without them only symbols declared under [sourceRoot] are known.
+ * dependencies resolve; without them only symbols declared under [sourceRoots] are known.
  *
- * The session is immutable: it snapshots [sourceRoot] at construction, which suits per-commit
+ * All [sourceRoots] land in a single module: the packer ranks symbols across the whole
+ * repository, so Gradle's module boundaries would only get in the way of resolution.
+ *
+ * The session is immutable: it snapshots [sourceRoots] at construction, which suits per-commit
  * indexing (docs/plan.md §6 "Staleness"). Close it to release the IntelliJ platform environment.
  */
 class AnalysisApiResolver(
-    sourceRoot: Path,
+    sourceRoots: List<Path>,
     classpath: List<Path> = emptyList(),
     jdkHome: Path? = null,
     moduleName: String = "main",
@@ -73,7 +76,7 @@ class AnalysisApiResolver(
                     buildKtSourceModule {
                         this.moduleName = moduleName
                         platform = jvm
-                        addSourceRoot(sourceRoot)
+                        addSourceRoots(sourceRoots)
                         binaryModules.forEach(::addRegularDependency)
                     },
                 )
