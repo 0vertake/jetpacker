@@ -74,7 +74,12 @@ dependencies {
     implementation("org.jetbrains:annotations:24.1.0")
     implementation("io.opentelemetry:opentelemetry-api:1.34.1") { isTransitive = false }
 
+    // Reads the source roots and resolved classpath out of a target project's Gradle build.
+    implementation("org.gradle:gradle-tooling-api:${libs.versions.gradleToolingApi.get()}")
+
     testImplementation(kotlin("test"))
+    // The Tooling API logs through slf4j; a binding keeps its "no providers" warning out of test output.
+    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.16")
 }
 
 tasks.test {
@@ -85,4 +90,6 @@ tasks.test {
     systemProperty("java.awt.headless", "true")
     systemProperty("idea.home.path", layout.buildDirectory.dir("ideaHome").get().asFile.absolutePath)
     environment("NO_FS_ROOTS_ACCESS_CHECK", "true")
+    // Opt-in target for RealRepositoryResolutionTest.
+    System.getProperty("jetpacker.repo")?.let { systemProperty("jetpacker.repo", it) }
 }

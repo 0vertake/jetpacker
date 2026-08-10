@@ -42,7 +42,7 @@ class BinaryDependencyResolutionTest {
                 ).toURI(),
             )
             AnalysisApiResolver(
-                sourceRoot = root,
+                sourceRoots = listOf(root),
                 classpath = listOf(originOf(Unit::class.java), originOf(Strings::class.java)),
                 jdkHome = Path.of(System.getProperty("java.home")),
             )

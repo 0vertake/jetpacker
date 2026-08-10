@@ -30,6 +30,8 @@ benchmark design, milestones, and kill-tests.
 - Build + test everything: `./gradlew build`
 - Tests only: `./gradlew test`
 - One module: `./gradlew :core:test`
+- Resolve a real repository (opt-in, needs network, minutes):
+  `./gradlew :core:test -Djetpacker.repo=/path/to/repo --tests '*RealRepository*'`
 
 ## Analysis API dependency wiring (hard-won; don't "simplify" it)
 
