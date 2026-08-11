@@ -42,10 +42,11 @@ scored from the issue text alone, recall of the declarations each fix changed:
 
 Retrieving whole declarations instead of windows is worth more than any ranking
 change, and structural expansion is worth 10–23 points over the seeds alone. The
-same ordering holds on 60 tasks mined from detekt's commit history, at lower
-absolute recall. Read [`docs/results.md`](docs/results.md) before quoting any of
-this: one repository carries most of the result, keyword search still wins below
-2k, and Level 2 (does a better pack produce a better patch?) is not measured yet.
+same ordering holds on ktlint's 43 tasks — the suite's largest block, and a much
+harder one — and on 60 tasks mined from detekt's commit history. Read
+[`docs/results.md`](docs/results.md) before quoting any of this: 71 of the
+suite's 105 tasks run, keyword search still wins below 2k, and Level 2 (does a
+better pack produce a better patch?) is not measured yet.
 
 ## Layout
 
