@@ -1,6 +1,9 @@
 package dev.jetpacker.core.index
 
+import kotlinx.serialization.Serializable
+
 /** What a [Symbol] is, which decides how it is packed and how edges to it are weighted. */
+@Serializable
 enum class SymbolKind { CLASS, INTERFACE, OBJECT, FUNCTION, CONSTRUCTOR, PROPERTY }
 
 /**
@@ -12,6 +15,7 @@ enum class SymbolKind { CLASS, INTERFACE, OBJECT, FUNCTION, CONSTRUCTOR, PROPERT
  * The body text is deliberately absent: [tokens] is all the packer needs to make budget
  * decisions, and re-reading [file] at pack time keeps a whole-repo index small.
  */
+@Serializable
 data class Symbol(
     val id: String,
     val fqName: String,
@@ -34,6 +38,7 @@ data class Symbol(
  * largely a coarser view of the same relation. The ablation harness is what should decide
  * whether they earn their place.
  */
+@Serializable
 enum class EdgeKind { CONTAINS, CALLS, EXTENDS, OVERRIDES }
 
 /**
@@ -43,6 +48,7 @@ enum class EdgeKind { CONTAINS, CALLS, EXTENDS, OVERRIDES }
  * [Symbol] and can never be packed. Those edges are kept because "calls into Guava" is real
  * signal; consumers that only care about packable nodes filter on [CodeIndex.byId].
  */
+@Serializable
 data class Edge(val from: String, val to: String, val kind: EdgeKind)
 
 /**
@@ -52,6 +58,7 @@ data class Edge(val from: String, val to: String, val kind: EdgeKind)
  * resolution, while a call with no enclosing declaration is a gap in extraction. Without them a
  * low-quality index is indistinguishable from a small codebase.
  */
+@Serializable
 data class ResolutionCoverage(
     val callSites: Int,
     val resolvedCallees: Int,
@@ -69,6 +76,7 @@ data class ResolutionCoverage(
  * Collections are sorted so that everything downstream inherits determinism for free, which the
  * pack format depends on (docs/plan.md §6).
  */
+@Serializable
 data class CodeIndex(
     val symbols: List<Symbol>,
     val edges: List<Edge>,

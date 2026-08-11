@@ -19,17 +19,16 @@ import java.nio.file.Path
 class Jetpacker(
     private val repoRoot: Path,
     val index: CodeIndex,
-    private val weights: EdgeWeights = EdgeWeights(),
-) {
+    weights: EdgeWeights = EdgeWeights(),
+    override val name: String = "jetpacker",
+) : Retriever {
     private val seedFinder = SeedFinder(index)
     private val ranker = Ranker(index, weights)
 
-    fun pack(task: String, budget: Int = DEFAULT_BUDGET): Pack =
+    override fun pack(task: String, budget: Int): Pack =
         Packer(index, repoRoot, budget).pack(ranker.rank(seedFinder.find(task)))
 
     companion object {
-        const val DEFAULT_BUDGET = 4000
-
         /** Reads the build, resolves the sources, and indexes them. Slow; call once per checkout. */
         fun forRepository(repoRoot: Path, weights: EdgeWeights = EdgeWeights()): Jetpacker {
             val project = readGradleProject(repoRoot)
