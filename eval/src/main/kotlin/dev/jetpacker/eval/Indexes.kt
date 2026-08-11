@@ -126,7 +126,10 @@ class Indexes(private val repo: Path, cacheDir: Path) {
     private fun timed(scope: String, build: () -> CodeIndex): CodeIndex {
         val started = System.nanoTime()
         return build().also {
-            System.err.println("    indexed $scope in ${(System.nanoTime() - started) / 1_000_000_000}s")
+            // A file the Analysis API threw on contributes nothing, so a run with many of them is
+            // measuring a partial index and the results have to say so.
+            val lost = it.coverage.failedFiles.takeIf { failed -> failed > 0 }?.let { failed -> ", $failed unanalyzable" }
+            System.err.println("    indexed $scope in ${(System.nanoTime() - started) / 1_000_000_000}s${lost.orEmpty()}")
         }
     }
 

@@ -134,6 +134,77 @@ at 1k, where keyword search wins on detekt and Exposed, it wins by 15 points. Tw
 small sample, but the direction is consistent with size — the bigger the repository, the less a
 keyword can localize on its own, and ort is the biggest here.
 
+### A fourth: dataframe
+
+5 tasks, the hardest repository in the suite for every retriever — a compiler-plugin-driven DSL
+whose gold patches touch as many as 19 declarations at once:
+
+| retriever | 1k | 2k | 4k | 8k |
+|-----------|----|----|----|----|
+| `jp:all-stubs` | **11.0%** | **16.0%** | 17.1% | **40.2%** |
+| `jp:default` | 10.0% | **16.0%** | 17.1% | **40.2%** |
+| `jp:seed-tests` | 10.0% | 15.0% | 16.0% | 37.4% |
+| `seeds-only` | 4.2% | 6.3% | 18.4% | 18.4% |
+| `bm25:full.00` | 4.2% | 12.4% | **21.3%** | 31.3% |
+| `bm25:full.30` | 3.2% | 12.4% | **21.3%** | 31.3% |
+| `chunk-bm25` | 0.0% | 0.0% | 10.0% | 10.0% |
+| `repo-map` | 0.0% | 0.0% | 0.0% | 5.0% |
+| `file-dump` | 0.0% | 0.0% | 0.0% | 1.1% |
+
+The engine leads at three budgets of four and by 9 points at 8k, but the 4k row is a genuine loss to
+BM25 and worth more than the win: with gold sets this large, no arm gets most of a patch, and which
+third of it each one finds is close to arbitrary at a single budget.
+
+These 5 tasks previously scored nothing at all: the Analysis API throws on one of dataframe's DSL
+calls — overload resolution reaches a state it asserts cannot happen — and that single call site
+aborted the entire index. Resolution failures are now caught where they happen, so the call is
+counted as unresolved and the other 73,000 in the repository still are.
+
+That is also the caveat on the whole table. Only **37.6%** of dataframe's call sites resolve to a
+declaration, against over 95% on detekt: it is generated-heavy, compiler-plugin-driven code, and the
+graph the engine ranks over is correspondingly thin. The gap over BM25 at 8k is what expansion
+manages on a third of the edges.
+
+### A fifth: TeXiFy, where the engine loses
+
+8 tasks, and the one repository in the suite where structural expansion is worse than doing nothing:
+
+| retriever | 1k | 2k | 4k | 8k |
+|-----------|----|----|----|----|
+| `jp:all-stubs` | 0.0% | 12.5% | 16.7% | 16.7% |
+| `jp:default` | 0.0% | 12.5% | 12.5% | 16.7% |
+| `jp:seed-tests` | 0.0% | 12.5% | 12.5% | 20.8% |
+| `seeds-only` | 8.3% | 8.3% | 25.0% | **36.3%** |
+| `bm25:full.00` | **16.7%** | **20.8%** | **25.0%** | 30.8% |
+| `bm25:full.30` | **16.7%** | **20.8%** | **25.0%** | 29.6% |
+| `chunk-bm25` | 12.5% | 12.5% | 12.5% | 12.5% |
+| `repo-map` | 0.0% | 0.0% | 0.0% | 0.0% |
+| `file-dump` | 0.0% | 0.0% | 0.0% | 0.0% |
+
+The engine loses to BM25 at every budget and, more damningly, to its own seeds-only ablation at 4k
+and 8k. Turning the graph off makes it *better* here, which is the opposite of every other result in
+this document.
+
+The cause is upstream of the graph. TeXiFy is an IDE plugin and its issues are written by LaTeX
+users describing what they saw — "the autocomplete popup shows the wrong entries" — with no
+identifier a keyword or a name match can land on. The seeds are consequently unrelated to the fix:
+for three of the eight tasks the top five are `TeXiFyProjectViewNodeDecorator` and
+`MendeleyCredentials.ID`. Expansion around a wrong seed is still wrong, and it buys hundreds of
+cheap signatures that outbid the seeds for the budget. The median rank of the best gold declaration
+is 468, against 12 on detekt.
+
+**A packing fix was tried and rejected.** If cheap neighbours outbid the seeds, giving seeds first
+refusal on the budget should bound the engine below by `seeds-only`. It does not: the arm changed
+TeXiFy by nothing at 4k and 8k, and cost 13.8 points on detekt and 4.2 on ort at 8k. The loss is in
+which declarations the seeding finds, not in which of them the packer keeps, so the change was
+dropped rather than kept as a tuning knob.
+
+### A sixth: shadow
+
+Its single task in the suite runs. One task is a coin flip — every arm scores 0% or 100%, and at
+4k the shipped default scores 0% while `jp:seed-tests` and `repo-map` score 100%; by 8k the default
+finds it too. Reported as coverage, not as a result.
+
 ## Results: mined commit messages
 
 detekt, 60 tasks from the last few hundred commits. Recall@budget:
@@ -226,11 +297,14 @@ around it is worth 20 points over ranking by the words alone.
 
 Read these before quoting any number above.
 
-- **83 of the Kotlin Benchmark's 105 tasks.** detekt, ktlint and ort run. The rest are blocked
-  differently: okhttp (2) at its Gradle model read, dataframe (5) inside an Analysis API resolution
-  crash, Anki-Android (6) needing the Android SDK, TeXiFy (8) on an IntelliJ plugin build, shadow
-  (1) untried. Nothing about the missing 22 tasks is known to favour or disfavour the engine, but
-  nothing rules it out either.
+- **97 of the Kotlin Benchmark's 105 tasks.** detekt, ktlint, ort, dataframe, TeXiFy and shadow all
+  run. The remaining 8 are blocked by their build environments rather than by the engine:
+  Anki-Android (6) needs an Android SDK, and okhttp (2) needs a GraalVM toolchain its build demands
+  by vendor and cannot auto-provision on this machine. Nothing about those 8 is known to favour or
+  disfavour the engine.
+- **dataframe's graph is thin.** 37.6% of its call sites resolve, against over 95% on detekt, so
+  its numbers say less about ranking than the others do. Resolution failures no longer abort an
+  index, but a call that does not resolve is still an edge the engine does not have.
 - **Exposed predates the source-root fix**, so its table is not directly comparable to the others.
 - **ktlint's build model is read at a 2025 commit**, not at HEAD, because the current build needs a
   newer JDK than this harness runs. Every base commit in its 43 tasks is older than that, so the
@@ -251,8 +325,11 @@ Read these before quoting any number above.
   ranks by global importance instead of task relevance. Its low score is a statement about that
   use, not about Aider.
 - **Tuned on detekt.** The seed penalty, the body share and the decision to drop search fusion were
-  all chosen against detekt's mined tasks. ktlint, ort and Exposed were never tuned on, which is
-  what makes them worth reading.
+  all chosen against detekt's mined tasks. ktlint, ort, dataframe, TeXiFy and Exposed were never
+  tuned on, which is what makes them worth reading — and TeXiFy is what that buys you.
+- **The engine needs the task text to name code.** TeXiFy is the counter-example above: where the
+  issue describes user-visible behaviour in prose, the seeds are wrong and expansion amplifies
+  them. Six repositories is not enough to say where the line falls, only that there is one.
 - **One build model stands in for every commit.** The Gradle model is read once at HEAD and its
   classpath reused for every base commit, with source roots taken from the checkout's own layout.
   Both detekt suites now score every task they mine — earlier runs dropped 13 of 60 — but a
@@ -277,12 +354,17 @@ git -C /tmp/ktlint checkout eab1e9dfd37386c417dad06ca9386efb84878c61
   -Pjetpacker.tasks=43 -Pjetpacker.budgets=1000,2000,4000,8000 \
   -Pjetpacker.cache=$HOME/.jetpacker-ktlint
 
-# ort, and mined commit messages from detekt.
-git clone https://github.com/oss-review-toolkit/ort /tmp/ort
-./gradlew :eval:run -Pjetpacker.repo=/tmp/ort \
-  -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=ort \
-  -Pjetpacker.tasks=12 -Pjetpacker.budgets=1000,2000,4000,8000 -Pjetpacker.cache=$HOME/.jetpacker-ort
+# The rest of the suite. Each repository needs its own cache directory.
+for repo in oss-review-toolkit/ort Kotlin/dataframe Hannah-Sten/TeXiFy-IDEA GradleUp/shadow; do
+  name=${repo#*/}
+  git clone https://github.com/$repo /tmp/$name
+  ./gradlew :eval:run -Pjetpacker.repo=/tmp/$name \
+    -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=$name \
+    -Pjetpacker.tasks=50 -Pjetpacker.budgets=1000,2000,4000,8000 \
+    -Pjetpacker.cache=$HOME/.jetpacker-$name
+done
 
+# Mined commit messages from detekt.
 ./gradlew :eval:run -Pjetpacker.repo=/tmp/detekt -Pjetpacker.tasks=60 \
   -Pjetpacker.budgets=1000,2000,4000,8000
 ```

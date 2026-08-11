@@ -44,8 +44,11 @@ Retrieving whole declarations instead of windows is worth more than any ranking
 change, and structural expansion is worth 10–23 points over the seeds alone. The
 same ordering holds on ktlint's 43 tasks and ort's 12 — where the margin is
 widest, more than double BM25 at 4k — and on 60 tasks mined from detekt's commit
-history. Read [`docs/results.md`](docs/results.md) before quoting any of this: 83
-of the suite's 105 tasks run, keyword search still wins below 2k on the smaller
+history. It does not hold everywhere: on TeXiFy, an IDE plugin whose issues
+describe what a LaTeX user saw rather than any code, the engine loses to BM25 at
+every budget and to its own no-expansion ablation. Read
+[`docs/results.md`](docs/results.md) before quoting any of this: 97 of the
+suite's 105 tasks run, keyword search still wins below 2k on the smaller
 repositories, and Level 2 (does a better pack produce a better patch?) is not
 measured yet.
 

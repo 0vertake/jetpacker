@@ -54,15 +54,17 @@ data class Edge(val from: String, val to: String, val kind: EdgeKind)
 /**
  * How much of the code the indexer understood.
  *
- * Two counters because the failures mean different things: an unresolved callee is a limit of
- * resolution, while a call with no enclosing declaration is a gap in extraction. Without them a
- * low-quality index is indistinguishable from a small codebase.
+ * The counters mean different things: an unresolved callee is a limit of resolution, a call with
+ * no enclosing declaration is a gap in extraction, and a [failedFiles] file is one the Analysis
+ * API threw on and the index therefore knows nothing about. Without them a low-quality index is
+ * indistinguishable from a small codebase.
  */
 @Serializable
 data class ResolutionCoverage(
     val callSites: Int,
     val resolvedCallees: Int,
     val attributedToCaller: Int,
+    val failedFiles: Int = 0,
 ) {
     val calleeRate: Double get() = ratio(resolvedCallees)
     val callerRate: Double get() = ratio(attributedToCaller)
