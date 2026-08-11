@@ -26,10 +26,10 @@ only thing that varies is which declarations get chosen and in what order.
 
 | name | what it is |
 |------|-----------|
-| `jp:default` | the shipped engine: fused ranking, 15% of the budget on bodies |
+| `jp:default` | the shipped engine: 15% of the budget on whole bodies, the rest on signatures |
 | `jp:all-stubs` | the same, spending nothing on bodies |
-| `jp:graph-only` | seeds → PageRank, without the keyword ranking fused in |
-| `seeds-only` | the headline ablation: structural expansion switched off entirely |
+| `jp:seed-tests` | ablation: test declarations allowed to seed on their names |
+| `seeds-only` | ablation: structural expansion switched off, same seed ranking |
 | `bm25:full.00` | BM25 over whole declarations, signatures only |
 | `bm25:full.30` | BM25 over whole declarations, 30% of the budget on bodies |
 | `chunk-bm25` | chunk RAG: fixed 40-line windows ranked by BM25 |
@@ -42,63 +42,71 @@ detekt, 47 tasks (60 mined, 13 without a resolvable gold declaration). Recall@bu
 
 | retriever | 1k | 2k | 4k | 8k |
 |-----------|----|----|----|----|
-| `jp:all-stubs` | **50.9%** | 57.4% | **70.4%** | **72.8%** |
-| `jp:default` | 50.6% | 55.3% | 67.6% | 69.5% |
-| `jp:graph-only` | 43.7% | **58.3%** | 62.7% | 64.4% |
-| `seeds-only` | 44.4% | 50.2% | 57.8% | 55.7% |
-| `bm25:full.00` | 46.0% | 56.2% | 60.0% | 60.4% |
-| `bm25:full.30` | 40.6% | 51.1% | 48.0% | 44.8% |
+| `jp:all-stubs` | **54.0%** | **60.1%** | **70.4%** | **79.1%** |
+| `jp:default` | 51.2% | 59.1% | 66.8% | 73.4% |
+| `jp:seed-tests` | 43.9% | 59.7% | 63.6% | 64.8% |
+| `seeds-only` | 23.9% | 42.7% | 56.4% | 61.3% |
+| `bm25:full.00` | 46.5% | 54.2% | 61.7% | 67.2% |
+| `bm25:full.30` | 44.6% | 50.4% | 50.8% | 46.0% |
 | `chunk-bm25` | 20.1% | 23.5% | 28.4% | 32.7% |
-| `repo-map` | 3.2% | 3.4% | 13.0% | 19.0% |
-| `file-dump` | 6.6% | 20.2% | 15.9% | 8.0% |
+| `repo-map` | 3.2% | 3.2% | 11.8% | 19.0% |
+| `file-dump` | 6.6% | 19.6% | 14.8% | 8.2% |
 
 Four things in that table are worth more than the headline.
 
-**Keyword search stops paying for context; structure does not.** BM25 gains four points between
-2k and 8k and then stops at 60%: past the first few hundred candidates its ranking has nothing
-left to say. The engine keeps converting budget into recall through 8k. The gap is 3 points at 1k
-and 12 points at 8k, and it is widening, not shrinking.
+**The margin holds at every budget, and widens slowly.** The engine is ahead of BM25 over the same
+declarations by 4.7 points at 1k and 6.2 at 8k; `jp:all-stubs` by 7.5 and 11.9. Both climb with the
+budget. What does not is anything that spends the budget on whole bodies: `bm25:full.30` and
+`file-dump` *lose* recall as the budget grows, because the extra lines they buy are not the lines
+being looked for.
 
 **The retrieval unit matters more than the ranking.** `chunk-bm25` and `bm25:full.00` are the same
-BM25 with the same budget and the same tokenizer. One retrieves 40-line windows and the other
-whole declarations, and that alone is worth 32 points at 4k. Windows spend the budget on partial
-declarations that cannot be credited and on the halves of neighbours that came along with them.
+BM25 with the same budget and the same tokenizer. One retrieves 40-line windows and the other whole
+declarations, and that alone is worth 33 points at 4k. Windows spend the budget on partial
+declarations that cannot be credited, and on the halves of neighbours that came along with them.
 
-**Structure earns its keep only above 2k.** At 1k a pack holds so few declarations that being
-right about the first twenty is all that matters, and keyword ranking is nearly as good at that.
-`jp:graph-only` even wins at 2k. The two rankings fused are the best or within a point everywhere,
-which is why fusion ships rather than either alone.
+**Expansion is doing most of the work.** `seeds-only` gets the same seeds and the same number of
+candidates, with the graph switched off, and trails by 10 to 27 points. The gap is widest at small
+budgets, where being right about the first twenty declarations is all that matters.
 
-**Expansion is doing the work, not the seeds.** `seeds-only` — the same seeds, structural
-expansion switched off — trails the full engine by 13 points at 4k and 17 at 8k, and it *loses*
-recall going from 4k to 8k, because with nowhere to expand to it spends the extra budget on
-lower-ranked keyword matches.
+**Test names are a trap for keyword ranking.** `jp:seed-tests` differs from the default only in
+letting test declarations seed on their own names. That costs 8.6 points at 8k, 7.3 at 1k and 3.2
+at 4k, and gains 0.6 at 2k. Spec-style names
+are English sentences, so they match a task description better than the code under test does. The
+five top seeds for "Don't leak AnalysisApi types" were five variants of one spec name, and
+expansion then restarted inside the test suite.
 
 ### Where the remaining loss is
 
 At 4k, over the same 47 tasks: the gold declaration is somewhere in the ranking for **47 of 47**
-tasks, and survives the budget for **36**. Its median rank is 33. So the ranking already knows
-where the answer is; roughly a quarter of the loss is the packer choosing to spend the budget
-elsewhere. Test code is no longer the culprit — it takes 4.8% of a pack, down from 42% before it
-was capped.
+tasks, and survives the budget for **35**. Its median rank is 8. So the ranking usually knows where
+the answer is and the budget is what loses it — but not by mis-spending it: reordering the knapsack
+four different ways (rank order instead of density, a square-root size penalty, guaranteeing the
+top 20 or 60 by rank a place) all scored the same or worse.
+
+Reading the individual misses is more useful than the aggregate. They are mostly repository-wide
+cleanups — "Remove unchecked casts", "Replace get calls with indexing operators" — whose text names
+nothing in particular, and rule-registry edits where the new rule does not exist yet at the base
+commit. Test code is no longer a factor: it takes 1.6% of a pack, down from 42% before it was
+capped.
 
 ### A second repository
 
-Exposed, 17 tasks, 4k budget. Everything that retrieves declarations at all scores in the high
-eighties, so the suite cannot separate them:
+Exposed, 17 tasks. It is much easier than detekt — everything that retrieves declarations at all
+does well at 4k — but it does separate the arms:
 
-| retriever | recall@4k |
-|-----------|-----------|
-| `jp:default` | 89.2% |
-| `seeds-only` | 87.7% |
-| `bm25:full.00` | 83.3% |
-| `repo-map` | 20.6% |
-| `chunk-bm25` | 22.1% |
+| retriever | 1k | 4k |
+|-----------|----|----|
+| `jp:default` | 55.9% | **91.2%** |
+| `bm25:full.00` | **64.7%** | 82.4% |
+| `chunk-bm25` | 11.8% | 22.1% |
+| `file-dump` | 2.9% | 8.8% |
 
-The engine is ahead and the ablation is ordered the same way, but a 6-point margin on 17 saturated
-tasks is not evidence of anything. What Exposed does establish is that the settings tuned on detekt
-do not backfire elsewhere, and that the two collapses — chunks and the repo map — are not a detekt
-artifact.
+At 1k BM25 wins here, which is the honest shape of the result: with room for only a handful of
+declarations, matching the words is a good strategy and structure has not paid for itself yet. What
+Exposed does establish is that the settings tuned on detekt do not backfire elsewhere — dropping
+search fusion was worth 14.7 points here against 1.7 lost on detekt at the same budget — and that
+the two collapses, chunks and the repo map, are not a detekt artifact.
 
 ### When the task names its target
 
@@ -106,28 +114,30 @@ Splitting the 4k run by whether the commit message names a declaration the patch
 
 | retriever | names it (5 tasks) | names none (42 tasks) |
 |-----------|-------------------|----------------------|
-| `jp:all-stubs` | 88.7% | 68.3% |
-| `jp:default` | 80.7% | 66.0% |
-| `bm25:full.00` | 64.7% | 59.4% |
+| `jp:all-stubs` | 94.3% | 67.6% |
+| `jp:default` | 94.3% | 63.5% |
+| `seeds-only` | 84.7% | 53.0% |
+| `bm25:full.00` | 74.7% | 60.1% |
 | `chunk-bm25` | 45.3% | 26.4% |
 
 The named slice is five tasks and cannot support a claim on its own. It is here because it is the
-case that *should* favour keyword search, and does not: even when the task says the name, finding
-the declaration around it is worth 24 points over BM25.
+case that *should* favour keyword search and does not: even when the task says the name, expanding
+around it is worth 20 points over ranking by the words alone.
 
 ## Limitations
 
 Read these before quoting any number above.
 
-- **One repository decides everything.** detekt is the only suite here that discriminates between
-  retrievers at all. On Exposed everything that retrieves declarations scores 83–89%, and the comparison says nothing.
+- **Two repositories, one of them easy.** detekt carries the result. Exposed agrees at 4k and
+  disagrees at 1k, where BM25 beats the engine.
 - **Commit messages are not issue reports.** A mined commit message often describes the fix rather
   than the symptom, which flatters every keyword-based method, including ours. Kotlin-SWE-bench
   issue text is the suite the plan calls for and is not wired up yet.
 - **Level 1 only.** Nothing here shows that a better pack produces a better patch. Recall of a
-  declaration's *name* is not the same as giving a model what it needs to edit it, which is why
-  the shipped default still spends part of the budget on bodies that Level-1 recall does not
-  reward.
+  declaration's *name* is not the same as giving a model what it needs to edit it, which is why the
+  shipped default still spends 15% of the budget on whole bodies even though `jp:all-stubs` scores
+  1.0 to 5.7 points higher without them. That is a judgement about what an agent needs, not a
+  result — the metric says signatures only.
 - **The chunk baseline ranks with BM25, not embeddings.** The plan asks for a local embedding
   model. On code of this size the reports it cites put BM25 at or above one, and the gap here is
   large enough that the substitution is unlikely to decide it — but it is a substitution.
@@ -135,8 +145,8 @@ Read these before quoting any number above.
   personalized by the files already in the chat. Scored as a task retriever with no chat files, it
   ranks by global importance instead of task relevance. Its low score is a statement about that
   use, not about Aider.
-- **Tuned on detekt.** The RRF constant and the body share were both chosen against these tasks.
-  They were re-checked on Exposed, which is saturated and could not have contradicted them.
+- **Tuned on detekt.** The seed penalty, the body share and the decision to drop search fusion were
+  all chosen against these tasks, then re-checked on Exposed. Two repositories is not a suite.
 - **The task set is not perfectly stable.** Reading a historical commit's build model through the
   Gradle Tooling API occasionally fails, and a task that cannot be indexed is skipped. Two runs of
   the same command scored 46 and 47 of the same 60 tasks. Numbers here are one run, not a mean.
@@ -149,5 +159,6 @@ git clone https://github.com/detekt/detekt /tmp/detekt
   -Pjetpacker.budgets=1000,2000,4000,8000
 ```
 
-Indexes and worktrees are cached under `~/.jetpacker`, keyed by commit. The first run costs a few
+Indexes and worktrees are cached under `~/.jetpacker`, keyed by commit and by index schema, so a
+change to what the indexer produces cannot be served from a stale file. The first run costs a few
 minutes per commit; later runs reuse both.

@@ -64,8 +64,43 @@ class SeedFinderTest {
         assertEquals(finder.find(task), finder.find(task))
     }
 
+    @Test
+    fun `a spec name does not outseed the code it exercises`() {
+        val seeds = SeedFinder(specNames).find("combine numbers together and get a wrong total")
+
+        assertEquals(
+            "fixture.specnames.Totals.combineNumbersTogether(kotlin.collections.List)",
+            seeds.first().id,
+            "the spec name matches the task almost word for word, which is why it must not seed " +
+                "ahead of the code under test, got ${seeds.map { it.id }}",
+        )
+    }
+
+    @Test
+    fun `a test is still reachable as a search result`() {
+        val found = SeedFinder(specNames).search("combine numbers together and get a wrong total")
+            .map { specNames.symbols[it].id }
+
+        assertTrue(
+            found.any { specNames.byId.getValue(it).isTest },
+            "the penalty applies to seeding only: tests are still ranked, and reach a pack " +
+                "through the edge from the code they exercise",
+        )
+    }
+
     private companion object {
         val finder: SeedFinder by lazy { SeedFinder(index) }
+
+        val specNames: CodeIndex by lazy {
+            val root = Path.of(
+                requireNotNull(SeedFinderTest::class.java.getResource("/fixtures/spec-names")).toURI(),
+            )
+            AnalysisApiIndexer(
+                sourceRoots = listOf(root),
+                repoRoot = root,
+                testRoots = listOf(root.resolve("test")),
+            ).use { it.index() }
+        }
 
         val index: CodeIndex by lazy {
             val root = Path.of(

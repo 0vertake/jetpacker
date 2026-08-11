@@ -28,7 +28,7 @@ data class Snapshot(val root: Path, val index: CodeIndex)
  */
 class Indexes(private val repo: Path, cacheDir: Path) {
     private val worktrees = cacheDir.resolve("worktrees").also { it.createDirectories() }
-    private val indexes = cacheDir.resolve("indexes").also { it.createDirectories() }
+    private val indexes = cacheDir.resolve("indexes/v$SCHEMA").also { it.createDirectories() }
     private val json = Json { ignoreUnknownKeys = true }
 
     private val project by lazy { readGradleProject(repo) }
@@ -71,4 +71,14 @@ class Indexes(private val repo: Path, cacheDir: Path) {
         checkout.resolve(root.relativize(path.toRealPathOrSelf())).takeIf { it.isDirectory() }
 
     private fun Path.toRealPathOrSelf(): Path = runCatching { toRealPath() }.getOrDefault(this)
+
+    private companion object {
+        /**
+         * Bump whenever what the indexer *produces* changes — symbol ids, signatures, edges.
+         * A commit's SHA alone had keyed these files, so changing how a signature is built left
+         * every cached index describing the old code with the new code's name for it, and a
+         * benchmark run silently measured a mixture of the two.
+         */
+        const val SCHEMA = 2
+    }
 }

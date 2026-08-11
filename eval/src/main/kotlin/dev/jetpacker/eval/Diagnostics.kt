@@ -17,18 +17,29 @@ data class Diagnosis(
     val bestRank: Int?,
     val packed: Boolean,
     val testTokenShare: Double,
+    val miss: Miss?,
 )
+
+/** A task whose gold never made the pack, with enough context to see why by reading it. */
+data class Miss(val task: String, val gold: List<String>, val bestRank: Int?, val top: List<String>)
 
 fun diagnose(index: CodeIndex, engine: Jetpacker, task: Task, gold: Set<String>, budget: Int): Diagnosis {
     val ranked: List<Ranked> = engine.ranked(task.text)
     val bestRank = ranked.indexOfFirst { it.symbol.id in gold }.takeIf { it >= 0 }
     val pack = engine.pack(task.text, budget)
 
+    val packed = pack.items.any { it.symbol.id in gold }
     return Diagnosis(
         reachable = bestRank != null,
         bestRank = bestRank,
-        packed = pack.items.any { it.symbol.id in gold },
+        packed = packed,
         testTokenShare = pack.testTokenShare(),
+        miss = if (packed) null else Miss(
+            task = task.text.lines().first().take(90),
+            gold = gold.sorted(),
+            bestRank = bestRank,
+            top = ranked.take(5).map { "${it.symbol.id} (${it.why})" },
+        ),
     )
 }
 
@@ -53,4 +64,14 @@ fun reportDiagnostics(diagnoses: List<Diagnosis>) {
         |  budget spent on test code     ${"%.1f%%".format(diagnoses.map { it.testTokenShare }.average() * 100)}
         """.trimMargin(),
     )
+
+    val misses = diagnoses.mapNotNull { it.miss }
+    if (misses.isEmpty()) return
+    println("\ntasks whose gold never made the pack:")
+    for (miss in misses) {
+        println("  ${miss.task}")
+        println("    gold      ${miss.gold.joinToString(", ")}")
+        println("    best rank ${miss.bestRank ?: "unreachable"}")
+        println("    ranked    ${miss.top.joinToString("; ")}")
+    }
 }

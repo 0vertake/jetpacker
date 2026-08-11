@@ -7,7 +7,7 @@ import dev.jetpacker.baselines.RepoMapRetriever
 import dev.jetpacker.core.Jetpacker
 import dev.jetpacker.core.Retriever
 import dev.jetpacker.core.rank.EdgeWeights
-import dev.jetpacker.core.rank.RRF_K
+import dev.jetpacker.core.seed.SeedFinder
 import java.nio.file.Path
 import kotlin.system.exitProcess
 
@@ -74,6 +74,9 @@ fun main() {
 /** The budget the slices and diagnostics describe, and the one results are quoted at. */
 private const val HEADLINE_BUDGET = 4000
 
+/** Deep enough for any arm to spend the largest budget swept. */
+private const val CANDIDATES = 400
+
 /**
  * Everything scored on each task. Same budget, same packer, same token accounting — the only
  * thing that varies is how candidates are chosen and ordered.
@@ -82,15 +85,17 @@ private fun retrievers(snapshot: Snapshot): List<Retriever> = listOf(
     // Baselines get the same fidelity policy as the engine config they are compared against;
     // leaving them on a body-heavy default would have flattered us by ten points.
     Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.00", fullTierShare = 0.00),
-    Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.30", fullTierShare = 0.30),
     ChunkRetriever(snapshot.index, snapshot.root),
+    Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.30", fullTierShare = 0.30),
     FileDumpRetriever(snapshot.index, snapshot.root),
     RepoMapRetriever(snapshot.index, snapshot.root),
-    Jetpacker(snapshot.root, snapshot.index, EdgeWeights().none(), name = "seeds-only"),
-    // One variable at a time off `base`, so a difference has one cause.
-    engine(snapshot, "all-stubs"),
+    // The headline ablation: the same seed ranking, with structural expansion switched off. It
+    // needs enough seeds to fill the budget, or it would be losing to having nothing to pack.
+    Jetpacker(snapshot.root, snapshot.index, EdgeWeights().none(), "seeds-only", seeds = CANDIDATES),
+    // One variable at a time off the default, so a difference has one cause.
     engine(snapshot, "default", fullTierShare = 0.15),
-    engine(snapshot, "graph-only", fullTierShare = 0.15, fuseSearch = false),
+    engine(snapshot, "all-stubs"),
+    engine(snapshot, "seed-tests", fullTierShare = 0.15, testPenalty = 1.0),
 )
 
 private fun engine(
@@ -99,8 +104,7 @@ private fun engine(
     weights: EdgeWeights = EdgeWeights(sameFile = 1.0),
     fullTierShare: Double = 0.0,
     seeds: Int = Jetpacker.DEFAULT_SEEDS,
-    fuseSearch: Boolean = true,
-    rrfK: Int = RRF_K,
+    testPenalty: Double = SeedFinder.DEFAULT_TEST_PENALTY,
 ) = Jetpacker(
     snapshot.root,
     snapshot.index,
@@ -109,8 +113,7 @@ private fun engine(
     fullTierShare,
     testShare = 0.1,
     seeds = seeds,
-    fuseSearch = fuseSearch,
-    rrfK = rrfK,
+    testPenalty = testPenalty,
 )
 
 private fun report(results: Map<String, List<Score>>, skipped: Int) {
