@@ -3,6 +3,7 @@ package dev.jetpacker.eval
 import dev.jetpacker.baselines.Bm25Retriever
 import dev.jetpacker.baselines.ChunkRetriever
 import dev.jetpacker.baselines.FileDumpRetriever
+import dev.jetpacker.baselines.RepoMapRetriever
 import dev.jetpacker.core.Jetpacker
 import dev.jetpacker.core.Retriever
 import dev.jetpacker.core.rank.EdgeWeights
@@ -81,6 +82,7 @@ private fun retrievers(snapshot: Snapshot): List<Retriever> = listOf(
     Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.30", fullTierShare = 0.30),
     ChunkRetriever(snapshot.index, snapshot.root),
     FileDumpRetriever(snapshot.index, snapshot.root),
+    RepoMapRetriever(snapshot.index, snapshot.root),
     Jetpacker(snapshot.root, snapshot.index, EdgeWeights().none(), name = "seeds-only"),
     // One variable at a time off `base`, so a difference has one cause.
     engine(snapshot, "all-stubs"),
