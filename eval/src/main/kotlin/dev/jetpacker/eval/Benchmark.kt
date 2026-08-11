@@ -4,8 +4,10 @@ import dev.jetpacker.baselines.Bm25Retriever
 import dev.jetpacker.baselines.ChunkRetriever
 import dev.jetpacker.baselines.FileDumpRetriever
 import dev.jetpacker.baselines.RepoMapRetriever
+import dev.jetpacker.baselines.nameMatchedIndex
 import dev.jetpacker.core.Jetpacker
 import dev.jetpacker.core.Retriever
+import dev.jetpacker.core.index.CodeIndex
 import dev.jetpacker.core.rank.EdgeWeights
 import dev.jetpacker.core.seed.SeedFinder
 import java.nio.file.Path
@@ -116,7 +118,27 @@ private fun retrievers(snapshot: Snapshot): List<Retriever> = listOf(
     engine(snapshot, "default", fullTierShare = 0.15),
     engine(snapshot, "all-stubs"),
     engine(snapshot, "seed-tests", fullTierShare = 0.15, testPenalty = 1.0),
+    // Resolution off: the same engine over call edges a parser could have produced (§5).
+    Jetpacker(
+        snapshot.root,
+        nameMatched(snapshot),
+        EdgeWeights(),
+        "names-only",
+        fullTierShare = 0.15,
+        testShare = 0.1,
+    ),
 ) + edgeAblations(snapshot)
+
+/**
+ * The name-matched view of a checkout, built once rather than once per task.
+ *
+ * Rebuilding it costs a pass over every source file, and the harness asks for its retrievers again
+ * for every task in the repository.
+ */
+private val nameMatchedIndexes = HashMap<Path, CodeIndex>()
+
+private fun nameMatched(snapshot: Snapshot): CodeIndex =
+    nameMatchedIndexes.getOrPut(snapshot.root) { nameMatchedIndex(snapshot.index, snapshot.root) }
 
 /**
  * One relation removed at a time, against `jp:default` (docs/plan.md §5).
