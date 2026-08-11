@@ -35,6 +35,19 @@ fun score(index: CodeIndex, pack: Pack, gold: Set<String>): Score {
     )
 }
 
+/**
+ * Whether the task text spells out the name of something it changed.
+ *
+ * This is the split that decides whether structure is doing any work. When an issue names the
+ * declaration, keyword search is already at its best and there is little for a graph to add;
+ * the case the thesis rests on is the other one, where the target has to be reached through
+ * relationships (docs/plan.md §5). Reporting only the average hides both.
+ */
+fun namesItsTarget(index: CodeIndex, task: Task, gold: Set<String>): Boolean {
+    val words = Regex("""[A-Za-z_][A-Za-z0-9_]*""").findAll(task.text).map { it.value }.toSet()
+    return gold.any { index.byId[it]?.name in words }
+}
+
 /** Mean of per-task scores. Unweighted: every task counts once, whatever its patch size. */
 fun List<Score>.mean(): Score = Score(
     recall = map { it.recall }.average(),

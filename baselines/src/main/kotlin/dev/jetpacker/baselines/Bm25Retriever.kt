@@ -20,15 +20,21 @@ class Bm25Retriever(
     private val index: CodeIndex,
     private val repoRoot: Path,
     override val name: String = "bm25",
+    private val fullTierShare: Double = Packer.DEFAULT_FULL_TIER_SHARE,
 ) : Retriever {
     private val finder = SeedFinder(index)
 
     override fun pack(task: String, budget: Int): Pack {
         // Rank position stands in for a score: BM25 magnitudes are not comparable across tasks,
         // and the packer only needs a monotone ordering to compute density.
-        val ranked = finder.search(task).mapIndexed { rank, symbol ->
+        // Enough candidates to fill the budget; a shorter list left the baseline underspending it.
+        val ranked = finder.search(task, CANDIDATES).mapIndexed { rank, symbol ->
             Ranked(index.symbols[symbol], 1.0 / (rank + 1), "bm25")
         }
-        return Packer(index, repoRoot, budget).pack(ranked)
+        return Packer(index, repoRoot, budget, fullTierShare).pack(ranked)
+    }
+
+    private companion object {
+        const val CANDIDATES = 600
     }
 }
