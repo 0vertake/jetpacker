@@ -113,6 +113,27 @@ The median rank of the best gold declaration is 80, against 12 on detekt: the gr
 answer for all 43 tasks but often only after a hundred other declarations, which is why recall keeps
 climbing steeply with the budget rather than saturating.
 
+### A third: ort
+
+12 tasks, on a repository three times detekt's size:
+
+| retriever | 1k | 2k | 4k | 8k |
+|-----------|----|----|----|----|
+| `jp:all-stubs` | **28.7%** | **42.1%** | **53.6%** | **60.4%** |
+| `jp:default` | 28.0% | 37.4% | 51.8% | 59.6% |
+| `jp:seed-tests` | 28.0% | 38.0% | 52.4% | 59.6% |
+| `seeds-only` | 14.2% | 26.3% | 36.8% | 44.7% |
+| `bm25:full.00` | 13.7% | 19.4% | 24.8% | 42.4% |
+| `bm25:full.30` | 13.7% | 17.9% | 18.7% | 21.5% |
+| `chunk-bm25` | 4.8% | 11.5% | 13.3% | 25.9% |
+| `repo-map` | 1.3% | 1.3% | 7.3% | 33.0% |
+| `file-dump` | 7.8% | 11.1% | 10.7% | 24.7% |
+
+This is the widest margin in the suite: at 4k the engine finds more than twice what BM25 does, and
+at 1k, where keyword search wins on detekt and Exposed, it wins by 15 points. Twelve tasks is a
+small sample, but the direction is consistent with size — the bigger the repository, the less a
+keyword can localize on its own, and ort is the biggest here.
+
 ## Results: mined commit messages
 
 detekt, 60 tasks from the last few hundred commits. Recall@budget:
@@ -205,11 +226,11 @@ around it is worth 20 points over ranking by the words alone.
 
 Read these before quoting any number above.
 
-- **71 of the Kotlin Benchmark's 105 tasks.** detekt and ktlint run; the other six repositories do
-  not, and each is blocked differently: ort by indexing cost (13 minutes a commit, and the run died
-  partway), okhttp by its Gradle model read, dataframe by an Analysis API resolution crash,
-  Anki-Android by needing the Android SDK, TeXiFy by an IntelliJ plugin build. Nothing about the
-  missing 34 tasks is known to favour or disfavour the engine, but nothing rules it out either.
+- **83 of the Kotlin Benchmark's 105 tasks.** detekt, ktlint and ort run. The rest are blocked
+  differently: okhttp (2) at its Gradle model read, dataframe (5) inside an Analysis API resolution
+  crash, Anki-Android (6) needing the Android SDK, TeXiFy (8) on an IntelliJ plugin build, shadow
+  (1) untried. Nothing about the missing 22 tasks is known to favour or disfavour the engine, but
+  nothing rules it out either.
 - **Exposed predates the source-root fix**, so its table is not directly comparable to the others.
 - **ktlint's build model is read at a 2025 commit**, not at HEAD, because the current build needs a
   newer JDK than this harness runs. Every base commit in its 43 tasks is older than that, so the
@@ -230,7 +251,8 @@ Read these before quoting any number above.
   ranks by global importance instead of task relevance. Its low score is a statement about that
   use, not about Aider.
 - **Tuned on detekt.** The seed penalty, the body share and the decision to drop search fusion were
-  all chosen against these tasks, then re-checked on Exposed. Two repositories is not a suite.
+  all chosen against detekt's mined tasks. ktlint, ort and Exposed were never tuned on, which is
+  what makes them worth reading.
 - **One build model stands in for every commit.** The Gradle model is read once at HEAD and its
   classpath reused for every base commit, with source roots taken from the checkout's own layout.
   Both detekt suites now score every task they mine — earlier runs dropped 13 of 60 — but a
@@ -255,11 +277,18 @@ git -C /tmp/ktlint checkout eab1e9dfd37386c417dad06ca9386efb84878c61
   -Pjetpacker.tasks=43 -Pjetpacker.budgets=1000,2000,4000,8000 \
   -Pjetpacker.cache=$HOME/.jetpacker-ktlint
 
-# Mined commit messages, same repository.
+# ort, and mined commit messages from detekt.
+git clone https://github.com/oss-review-toolkit/ort /tmp/ort
+./gradlew :eval:run -Pjetpacker.repo=/tmp/ort \
+  -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=ort \
+  -Pjetpacker.tasks=12 -Pjetpacker.budgets=1000,2000,4000,8000 -Pjetpacker.cache=$HOME/.jetpacker-ort
+
 ./gradlew :eval:run -Pjetpacker.repo=/tmp/detekt -Pjetpacker.tasks=60 \
   -Pjetpacker.budgets=1000,2000,4000,8000
 ```
 
 Indexes and worktrees are cached under `~/.jetpacker`, keyed by commit and by index schema, so a
-change to what the indexer produces cannot be served from a stale file. The first run costs a few
-minutes per commit; later runs reuse both.
+change to what the indexer produces cannot be served from a stale file. A commit that has a near
+neighbour in the cache is not resolved from scratch: only the files its diff touched are
+re-analyzed, which is why the detekt suite costs 4.4 minutes of analysis rather than 18 and
+reproduces the same numbers either way.

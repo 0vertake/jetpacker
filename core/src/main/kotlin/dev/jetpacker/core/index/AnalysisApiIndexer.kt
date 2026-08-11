@@ -108,11 +108,23 @@ class AnalysisApiIndexer(
             .sortedBy { it.virtualFilePath }
     }
 
-    private val cached: CodeIndex by lazy { build() }
+    private val cached: CodeIndex by lazy { build(null) }
 
     override fun index(): CodeIndex = cached
 
-    private fun build(): CodeIndex {
+    /**
+     * Indexes only [only] (repository-relative paths), resolving them against every source root.
+     *
+     * Resolution is 93% of the cost of an index — 43 seconds of 46 on detekt — and most of a
+     * repository does not change between two commits, so re-analyzing only what did is what makes
+     * indexing a second commit cheap. The whole module still enters the session: a file cannot be
+     * resolved without the declarations it references.
+     *
+     * [CodeIndex.coverage] then describes the analyzed files alone, not the repository.
+     */
+    fun index(only: Set<String>): CodeIndex = build(only)
+
+    private fun build(only: Set<String>?): CodeIndex {
         val symbols = mutableListOf<Symbol>()
         val edges = mutableSetOf<Edge>()
         var callSites = 0
@@ -122,6 +134,7 @@ class AnalysisApiIndexer(
         for (file in files) {
             val absolute = Path.of(file.virtualFilePath)
             val path = relativePath(absolute)
+            if (only != null && path !in only) continue
             val isTest = testRoots.any(absolute::startsWith)
             val declarations = file.collectDescendantsOfType<KtDeclaration> { it.isIndexable() }
 
@@ -155,7 +168,9 @@ class AnalysisApiIndexer(
         }
 
         return CodeIndex(
-            symbols = symbols.sortedBy { it.id },
+            // Not by id alone: a file-private `const val MAX` in two test files carries the same
+            // id, and which of the two came first then depended on the order they were analyzed in.
+            symbols = symbols.sortedWith(compareBy({ it.id }, { it.file }, { it.startLine })),
             edges = edges.sortedWith(compareBy({ it.kind }, { it.from }, { it.to })),
             coverage = ResolutionCoverage(callSites, resolvedCallees, attributedToCaller),
         )
