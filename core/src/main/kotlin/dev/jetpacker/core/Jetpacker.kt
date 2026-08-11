@@ -29,8 +29,9 @@ class Jetpacker(
     private val seeds: Int = DEFAULT_SEEDS,
     private val fuseSearch: Boolean = true,
     private val rrfK: Int = RRF_K,
+    testPenalty: Double = SeedFinder.DEFAULT_TEST_PENALTY,
 ) : Retriever {
-    private val seedFinder = SeedFinder(index)
+    private val seedFinder = SeedFinder(index, testPenalty)
     private val ranker = Ranker(index, weights)
 
     override fun pack(task: String, budget: Int): Pack =
