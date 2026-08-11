@@ -22,14 +22,27 @@ break. The hypothesis — backed by recent retrieval literature — is that
 compiler-resolved structural packing beats chunk RAG *and* surface-level
 (tree-sitter) structural packing on resolve-heavy Kotlin/Java tasks.
 
-**The benchmark is the deliverable.** Results will be published on
-[Kotlin-SWE-bench](https://github.com/Kotlin/kotlin-swe-bench) tasks against
-in-repo baselines (chunk RAG, BM25, tree-sitter/Aider-style pack), with
-ablations. See [`docs/plan.md`](docs/plan.md) for the full research and build plan.
+**The benchmark is the deliverable.** See [`docs/results.md`](docs/results.md) for
+what it currently says and what it does not, and [`docs/plan.md`](docs/plan.md)
+for the full research and build plan.
 
 ## Status
 
-Pre-alpha. Repo scaffolding only — Phase 0 (Analysis API feasibility spike) is next.
+The pipeline runs end to end and the Level-1 benchmark is wired up. On 47 tasks
+mined from detekt's history, at a 4k-token budget, recall of the declarations a
+commit changed:
+
+| | 1k | 2k | 4k | 8k |
+|---|----|----|----|----|
+| Jetpacker | **50.6%** | 55.3% | **67.6%** | **69.5%** |
+| BM25 over declarations | 46.0% | **56.2%** | 60.0% | 60.4% |
+| Chunk RAG (40-line windows) | 20.1% | 23.5% | 28.4% | 32.7% |
+| Aider-style repo map | 3.2% | 3.4% | 13.0% | 19.0% |
+
+Keyword search stops converting budget into recall around 2k; structural
+expansion does not. Read [`docs/results.md`](docs/results.md) before quoting
+any of this — one repository carries the whole result, and Level 2 (does a
+better pack produce a better patch?) is not measured yet.
 
 ## Layout
 

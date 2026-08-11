@@ -62,7 +62,29 @@ class PipelineTest {
             // tokens too, and counting only bodies once understated a pack six-fold.
             assertTrue(rendered <= budget, "rendered $rendered tokens for a budget of $budget")
             assertTrue(pack.tokens <= budget, "reported ${pack.tokens} of $budget")
+            assertTrue(
+                pack.tokens >= rendered,
+                "the packer charges for what the renderer prints, so its count may round up but " +
+                    "never down: reported ${pack.tokens}, rendered $rendered",
+            )
         }
+    }
+
+    @Test
+    fun `names a file once for all of the signatures it contributes`() {
+        // Tight enough that Greeter.kt contributes signatures rather than whole bodies.
+        val markdown = packer().pack("`Greeter` and `GreetingService`", budget = 120).toMarkdown()
+        val stubs = markdown.substringAfter("## Related signatures", "")
+
+        assertTrue(
+            stubs.lines().count { it.startsWith("- ") } >= 2,
+            "expected several signatures from one file, got:\n$markdown",
+        )
+        assertEquals(
+            1,
+            Regex("`[^`\n]*Greeter\\.kt`").findAll(stubs).count(),
+            "repeating the path per stub cost more than the signatures did, so it is printed once",
+        )
     }
 
     @Test

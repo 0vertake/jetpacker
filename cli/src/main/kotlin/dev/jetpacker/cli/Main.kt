@@ -1,6 +1,7 @@
 package dev.jetpacker.cli
 
 import dev.jetpacker.core.Jetpacker
+import dev.jetpacker.core.Retriever
 import dev.jetpacker.core.pack.toMarkdown
 import java.nio.file.Path
 import kotlin.io.path.readText
@@ -27,7 +28,7 @@ fun main(args: Array<String>) {
 
     val repo = Path.of(flags["--repo"] ?: fail("--repo is required\n\n${USAGE.trim()}"))
     val task = flags["--task"] ?: fail("--task is required\n\n${USAGE.trim()}")
-    val budget = flags["--budget"]?.toIntOrNull() ?: Jetpacker.DEFAULT_BUDGET
+    val budget = flags["--budget"]?.toIntOrNull() ?: Retriever.DEFAULT_BUDGET
 
     val text = if (task == "-") generateSequence(::readLine).joinToString("\n") else Path.of(task).readText()
 

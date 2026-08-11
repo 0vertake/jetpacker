@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -56,7 +57,8 @@ dependencies {
     // JetBrains' patched coroutines: the IntelliJ platform jars reference
     // kotlinx.coroutines.internal.intellij.IntellijCoroutines, which vanilla coroutines lacks.
     implementation("org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core-jvm:1.10.2-intellij-1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    // Needed by IntelliJ's XML DOM at runtime, and by the index cache the benchmark relies on.
+    api(libs.kotlinx.serialization.json)
     implementation("com.google.guava:guava:33.2.0-jre")
     implementation("one.util:streamex:0.7.2")
     implementation("org.jetbrains.intellij.deps:asm-all:9.0")

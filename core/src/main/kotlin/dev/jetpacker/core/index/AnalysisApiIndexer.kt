@@ -24,12 +24,12 @@ import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModu
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtClassOrObject
-import org.jetbrains.kotlin.psi.KtConstructor
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtSecondaryConstructor
 import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 import java.nio.file.Path
 
@@ -224,8 +224,13 @@ class AnalysisApiIndexer(
      */
     private fun KaSession.symbolId(symbol: KaDeclarationSymbol): String? = when (symbol) {
         is KaClassSymbol -> symbol.classId?.asFqNameString()
-        is KaConstructorSymbol ->
-            symbol.containingClassId?.asFqNameString()?.let { "$it.<init>${parameterList(symbol)}" }
+        // `Foo()` resolves to the class. A primary constructor is not a retrievable unit of its
+        // own — it has no body, and packing one rendered a truncated class header — so relevance
+        // for instantiating a type belongs on the type. Secondary constructors are real
+        // declarations and keep their own identity.
+        is KaConstructorSymbol -> symbol.containingClassId?.asFqNameString()?.let {
+            if (symbol.isPrimary) it else "$it.<init>${parameterList(symbol)}"
+        }
         is KaNamedFunctionSymbol ->
             symbol.callableId?.asSingleFqName()?.asString()?.let { "$it${parameterList(symbol)}" }
         is KaPropertySymbol -> symbol.callableId?.asSingleFqName()?.asString()
@@ -305,7 +310,7 @@ class AnalysisApiIndexer(
             .replace('\\', '/')
 
     private fun KtDeclaration.isIndexable(): Boolean =
-        this is KtClassOrObject || this is KtNamedFunction || this is KtProperty || this is KtConstructor<*>
+        this is KtClassOrObject || this is KtNamedFunction || this is KtProperty || this is KtSecondaryConstructor
 
     override fun close() = Disposer.dispose(disposable)
 }

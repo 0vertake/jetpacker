@@ -51,11 +51,16 @@ class AnalysisApiIndexerTest {
     @Test
     fun `nests members under the class that declares them`() {
         assertEquals(
-            listOf(
-                "fixture.GreetingService.<init>(fixture.Greeter)",
-                "fixture.GreetingService.welcome(kotlin.String)",
-            ),
+            listOf("fixture.GreetingService.welcome(kotlin.String)"),
             index.outgoing("fixture.GreetingService", EdgeKind.CONTAINS).sorted(),
+        )
+    }
+
+    @Test
+    fun `instantiating a type is an edge to the type itself`() {
+        assertTrue(
+            "fixture.FormalGreeter" in index.outgoing("fixture.run()", EdgeKind.CALLS),
+            "a primary constructor is not a separate node, so `FormalGreeter()` points at the class",
         )
     }
 

@@ -42,6 +42,7 @@ class Packer(
     private val repoRoot: Path,
     private val budget: Int = DEFAULT_BUDGET,
     private val fullTierShare: Double = DEFAULT_FULL_TIER_SHARE,
+    private val testShare: Double = DEFAULT_TEST_SHARE,
 ) {
     private val encoding = Encodings.newDefaultEncodingRegistry().getEncoding(EncodingType.CL100K_BASE)
     private val fileCache = HashMap<String, List<String>>()
@@ -72,11 +73,27 @@ class Packer(
     private inner class Selection {
         val taken = LinkedHashMap<String, PackItem>()
         var spent = 0
+        private var testSpent = 0
+        private val testLimit = (budget * testShare).toInt()
+
+        /** Stub groups whose file heading is already paid for; see [Renderer]'s grouping. */
+        private val headed = HashSet<String>()
 
         fun consider(candidate: Ranked, fidelity: Fidelity, limit: Int) {
             val id = candidate.symbol.id
             if (id in taken) return
             val item = render(candidate, fidelity) ?: return
+
+            val group = groupOf(candidate.symbol, fidelity)
+            val heading = if (group != null && group !in headed) encoding.countTokens(fileHeading(candidate.symbol.file)) else 0
+            val cost = item.tokens + heading
+
+            // Tests are worth naming but not worth the budget they will take if left uncapped:
+            // on detekt they are two thirds of all declarations and swallowed 42% of a pack.
+            if (candidate.symbol.isTest) {
+                if (testSpent + cost > testLimit) return
+                testSpent += cost
+            }
 
             // A class body already contains its methods; packing both spends the budget twice on
             // the same lines. Whichever arrives second wins, and the other is refunded.
@@ -84,11 +101,16 @@ class Packer(
             if (nested.isEmpty() && enclosingTakenFully(id)) return
             val refund = nested.sumOf { taken[it]?.tokens ?: 0 }
 
-            if (spent - refund + item.tokens > limit) return
+            if (spent - refund + cost > limit) return
             nested.forEach { taken.remove(it) }
             taken[id] = item
-            spent += item.tokens - refund
+            group?.let { headed += it }
+            spent += cost - refund
         }
+
+        /** Null for bodies, which carry their own path; stubs share one heading per file per section. */
+        private fun groupOf(symbol: Symbol, fidelity: Fidelity): String? =
+            if (fidelity == Fidelity.FULL) null else "${symbol.isTest}:${symbol.file}"
 
         private fun enclosingTakenFully(id: String): Boolean =
             generateSequence(owner[id]) { owner[it] }.any { taken[it]?.fidelity == Fidelity.FULL }
@@ -120,10 +142,10 @@ class Packer(
         val symbol = candidate.symbol
         val text = when (fidelity) {
             Fidelity.FULL -> body(symbol) ?: return null
-            Fidelity.STUB -> listOfNotNull(symbol.doc?.let { "/** $it */" }, symbol.signature).joinToString("\n")
+            Fidelity.STUB -> symbol.signature
         }
         if (text.isBlank()) return null
-        val rendered = block(symbol, candidate.why, text)
+        val rendered = block(symbol, candidate.why, text, fidelity)
         return PackItem(symbol, fidelity, candidate.why, text, encoding.countTokens(rendered))
     }
 
@@ -135,9 +157,15 @@ class Packer(
         return lines.subList(symbol.startLine - 1, symbol.endLine).joinToString("\n")
     }
 
-    private companion object {
+    companion object {
         const val DEFAULT_BUDGET = 4000
-        const val DEFAULT_FULL_TIER_SHARE = 0.7
+        /**
+         * Bodies are what an agent edits, so a pack is not all signatures — but they are expensive:
+         * on detekt, raising this above 0.15 cost recall and lowering it to 0 bought three points
+         * that a signature-only pack would make the agent spend a file read to recover.
+         */
+        const val DEFAULT_FULL_TIER_SHARE = 0.15
+        const val DEFAULT_TEST_SHARE = 0.1
         const val CANDIDATES = 400
         const val CHARS_PER_TOKEN = 3.6
 
