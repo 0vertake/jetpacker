@@ -116,7 +116,26 @@ private fun retrievers(snapshot: Snapshot): List<Retriever> = listOf(
     engine(snapshot, "default", fullTierShare = 0.15),
     engine(snapshot, "all-stubs"),
     engine(snapshot, "seed-tests", fullTierShare = 0.15, testPenalty = 1.0),
-)
+) + edgeAblations(snapshot)
+
+/**
+ * One relation removed at a time, against `jp:default` (docs/plan.md §5).
+ *
+ * `seeds-only` says expansion pays; these say what it is paying for. A relation whose removal costs
+ * nothing is one the engine could stop extracting, and one whose removal costs a lot is the claim.
+ * Directions are separate where they mean different things: `-callers` can still walk from a
+ * declaration to what it calls, while `-calls` removes the call relation entirely.
+ */
+private fun edgeAblations(snapshot: Snapshot): List<Retriever> = listOf(
+    "-calls" to EdgeWeights(calls = 0.0, calledBy = 0.0),
+    "-callers" to EdgeWeights(calledBy = 0.0),
+    "-impls" to EdgeWeights(extends = 0.0, extendedBy = 0.0, overrides = 0.0, overriddenBy = 0.0),
+    "-contains" to EdgeWeights(contains = 0.0, containedBy = 0.0),
+    "-samefile" to EdgeWeights(sameFile = 0.0),
+).map { (name, weights) -> engine(snapshot, name, weights, fullTierShare = 0.15) } +
+    // Not an edge kind: test code is reached by ordinary call edges, so the only way to ask what it
+    // is worth is to refuse to pack it.
+    engine(snapshot, "-testcode", fullTierShare = 0.15, testShare = 0.0)
 
 private fun engine(
     snapshot: Snapshot,
@@ -125,13 +144,14 @@ private fun engine(
     fullTierShare: Double = 0.0,
     seeds: Int = Jetpacker.DEFAULT_SEEDS,
     testPenalty: Double = SeedFinder.DEFAULT_TEST_PENALTY,
+    testShare: Double = 0.1,
 ) = Jetpacker(
     snapshot.root,
     snapshot.index,
     weights,
     "jp:$name",
     fullTierShare,
-    testShare = 0.1,
+    testShare = testShare,
     seeds = seeds,
     testPenalty = testPenalty,
 )
