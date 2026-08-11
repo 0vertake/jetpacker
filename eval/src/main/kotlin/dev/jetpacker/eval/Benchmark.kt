@@ -83,7 +83,7 @@ private fun retrievers(snapshot: Snapshot): List<Retriever> = listOf(
     // Baselines get the same fidelity policy as the engine config they are compared against;
     // leaving them on a body-heavy default would have flattered us by ten points.
     Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.00", fullTierShare = 0.00),
-    Bm25Retriever(snapshot.index, snapshot.root, "bm25:tests1.0", fullTierShare = 0.00, testPenalty = 1.0),
+    Bm25Retriever(snapshot.index, snapshot.root, "bm25:seed-tests", fullTierShare = 0.00, testPenalty = 1.0),
     Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.30", fullTierShare = 0.30),
     ChunkRetriever(snapshot.index, snapshot.root),
     FileDumpRetriever(snapshot.index, snapshot.root),
@@ -92,8 +92,7 @@ private fun retrievers(snapshot: Snapshot): List<Retriever> = listOf(
     // One variable at a time off `base`, so a difference has one cause.
     engine(snapshot, "all-stubs"),
     engine(snapshot, "default", fullTierShare = 0.15),
-    engine(snapshot, "tests:1.0", fullTierShare = 0.15, testPenalty = 1.0),
-    engine(snapshot, "tests:0.3", fullTierShare = 0.15, testPenalty = 0.3),
+    engine(snapshot, "seed-tests", fullTierShare = 0.15, testPenalty = 1.0),
     engine(snapshot, "graph-only", fullTierShare = 0.15, fuseSearch = false),
 )
 
