@@ -53,6 +53,10 @@ class AnalysisApiIndexer(
     private val testRoots: List<Path> = emptyList(),
 ) : CodeIndexer {
     private val disposable = Disposer.newDisposable("jetpacker.analysis")
+
+    // PSI reports canonical paths, so a repo root reached through a symlink (/tmp on macOS)
+    // would otherwise relativize to a ../../ escape and make every file unreadable later.
+    private val root = repoRoot?.let { runCatching { it.toRealPath() }.getOrDefault(it) }
     private val encoding = Encodings.newDefaultEncodingRegistry().getEncoding(EncodingType.CL100K_BASE)
     private val files: List<KtFile>
 
@@ -296,7 +300,7 @@ class AnalysisApiIndexer(
     }
 
     private fun relativePath(path: Path): String =
-        (repoRoot?.let { runCatching { it.relativize(path) }.getOrNull() } ?: path)
+        (root?.takeIf { path.startsWith(it) }?.relativize(path) ?: path)
             .toString()
             .replace('\\', '/')
 
