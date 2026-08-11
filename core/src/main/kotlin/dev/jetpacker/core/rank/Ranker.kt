@@ -29,9 +29,10 @@ data class EdgeWeights(
     val extendedBy: Double = 1.0,
     val overrides: Double = 0.8,
     val overriddenBy: Double = 1.0,
+    val sameFile: Double = 1.0,
 ) {
     /** Turns off structural expansion, leaving seeds only — the headline ablation's OFF arm. */
-    fun none(): EdgeWeights = EdgeWeights(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    fun none(): EdgeWeights = EdgeWeights(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 }
 
 /**
@@ -47,9 +48,23 @@ class Ranker(
 ) {
     private val ids: List<String> = index.symbols.map { it.id }
     private val position: Map<String, Int> = ids.withIndex().associate { (at, id) -> id to at }
+
+    /**
+     * One extra node per file, so declarations that merely sit together are weakly connected.
+     *
+     * Sibling top-level functions have no edge between them, yet the benchmark showed the right
+     * *file* being found far more often than the right declaration — the missing relation was
+     * plain co-location. A star through a file node keeps this linear; connecting every pair
+     * directly would be quadratic in the size of a file.
+     */
+    private val fileNode: Map<String, Int> = index.symbols.map { it.file }.distinct().sorted()
+        .withIndex().associate { (at, file) -> file to ids.size + at }
+
+    private val nodeCount = ids.size + fileNode.size
     private val links: List<List<Link>> = buildAdjacency()
 
-    private class Link(val target: Int, val weight: Double, val reason: (Symbol) -> String)
+    /** [reason] is fixed once the link exists, since both of its endpoints are. */
+    private class Link(val target: Int, val weight: Double, val reason: String)
 
     fun rank(seeds: List<Seed>): List<Ranked> {
         val restart = personalization(seeds) ?: return emptyList()
@@ -64,7 +79,7 @@ class Ranker(
 
     /** Seed scores as a probability distribution; null when no seed exists in this index. */
     private fun personalization(seeds: List<Seed>): DoubleArray? {
-        val restart = DoubleArray(ids.size)
+        val restart = DoubleArray(nodeCount)
         var total = 0.0
         for (seed in seeds) {
             val at = position[seed.id] ?: continue
@@ -79,7 +94,7 @@ class Ranker(
     private fun propagate(restart: DoubleArray): DoubleArray {
         var scores = restart.copyOf()
         repeat(MAX_ITERATIONS) {
-            val next = DoubleArray(ids.size)
+            val next = DoubleArray(nodeCount)
             var leaked = 0.0
             for (from in scores.indices) {
                 val mass = scores[from]
@@ -111,7 +126,7 @@ class Ranker(
      * most direct relationship rather than the strongest one.
      */
     private fun explain(seeds: List<Seed>): Array<String?> {
-        val reasons = arrayOfNulls<String>(ids.size)
+        val reasons = arrayOfNulls<String>(nodeCount)
         var frontier = seeds.mapNotNull { position[it.id] }
         frontier.forEach { reasons[it] = "seed" }
 
@@ -120,7 +135,7 @@ class Ranker(
             for (from in frontier) {
                 for (link in links[from]) {
                     if (link.weight == 0.0 || reasons[link.target] != null) continue
-                    reasons[link.target] = link.reason(index.symbols[from])
+                    reasons[link.target] = link.reason
                     next += link.target
                 }
             }
@@ -130,14 +145,20 @@ class Ranker(
     }
 
     private fun buildAdjacency(): List<List<Link>> {
-        val adjacency = List(ids.size) { mutableListOf<Link>() }
+        val adjacency = List(nodeCount) { mutableListOf<Link>() }
+        index.symbols.forEachIndexed { at, symbol ->
+            val file = fileNode.getValue(symbol.file)
+            val name = symbol.file.substringAfterLast('/')
+            adjacency[at] += Link(file, weights.sameFile, "in:$name")
+            adjacency[file] += Link(at, weights.sameFile, "same-file:$name")
+        }
         for (edge in index.edges) {
             val from = position[edge.from] ?: continue
             // Calls into the stdlib and dependencies resolve but are not packable declarations.
             val to = position[edge.to] ?: continue
             val (forward, backward) = weightsFor(edge)
-            adjacency[from] += Link(to, forward, forwardReason(edge.kind))
-            adjacency[to] += Link(from, backward, backwardReason(edge.kind, index.symbols[from]))
+            adjacency[from] += Link(to, forward, forwardReason(edge.kind, index.symbols[from]))
+            adjacency[to] += Link(from, backward, backwardReason(edge.kind, index.symbols[to], index.symbols[from]))
         }
         return adjacency
     }
@@ -149,17 +170,18 @@ class Ranker(
         EdgeKind.OVERRIDES -> weights.overrides to weights.overriddenBy
     }
 
-    private fun forwardReason(kind: EdgeKind): (Symbol) -> String = when (kind) {
-        EdgeKind.CALLS -> { from -> "called-by:${from.name}" }
-        EdgeKind.CONTAINS -> { from -> "member-of:${from.name}" }
-        EdgeKind.EXTENDS -> { from -> "supertype-of:${from.name}" }
-        EdgeKind.OVERRIDES -> { from -> "overridden-by:${from.name}" }
+    private fun forwardReason(kind: EdgeKind, from: Symbol): String = when (kind) {
+        EdgeKind.CALLS -> "called-by:${from.name}"
+        EdgeKind.CONTAINS -> "member-of:${from.name}"
+        EdgeKind.EXTENDS -> "supertype-of:${from.name}"
+        EdgeKind.OVERRIDES -> "overridden-by:${from.name}"
     }
 
-    private fun backwardReason(kind: EdgeKind, source: Symbol): (Symbol) -> String = when (kind) {
-        EdgeKind.CALLS -> { from -> if (source.isTest) "test-of:${from.name}" else "caller-of:${from.name}" }
-        EdgeKind.CONTAINS -> { from -> "declares:${from.name}" }
-        EdgeKind.EXTENDS, EdgeKind.OVERRIDES -> { from -> "impl-of:${from.name}" }
+    /** [target] is the symbol this link leads to; [origin] is the one it leads back from. */
+    private fun backwardReason(kind: EdgeKind, origin: Symbol, target: Symbol): String = when (kind) {
+        EdgeKind.CALLS -> if (target.isTest) "test-of:${origin.name}" else "caller-of:${origin.name}"
+        EdgeKind.CONTAINS -> "declares:${origin.name}"
+        EdgeKind.EXTENDS, EdgeKind.OVERRIDES -> "impl-of:${origin.name}"
     }
 
     private companion object {
