@@ -72,6 +72,23 @@ class AnalysisApiIndexerTest {
         )
     }
 
+    @Test
+    fun `a signature does not repeat the documentation`() {
+        val root = Path.of(
+            requireNotNull(AnalysisApiIndexerTest::class.java.getResource("/fixtures/spec-names")).toURI(),
+        )
+        val documented = AnalysisApiIndexer(listOf(root)).use { it.index() }
+            .symbols.single { it.id == "fixture.specnames.Totals" }
+
+        assertEquals("class Totals", documented.signature)
+        assertEquals(
+            "Adds up numbers.",
+            documented.doc,
+            "the doc is carried separately, which is why a signature that also held it charged the " +
+                "budget twice for the same words",
+        )
+    }
+
     private fun calls(callerId: String): List<String> = index.outgoing(callerId, EdgeKind.CALLS)
 
     private companion object {

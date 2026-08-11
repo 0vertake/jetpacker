@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
+import org.jetbrains.kotlin.analysis.api.types.KaErrorType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
@@ -248,8 +249,16 @@ class AnalysisApiIndexer(
         return (listOfNotNull(receiverPrefix) + parameters).joinToString(",", "(", ")")
     }
 
-    private fun KaSession.typeName(type: KaType): String =
-        (type as? KaClassType)?.classId?.asFqNameString() ?: type.toString()
+    /**
+     * An unresolved type renders as `ERROR CLASS: Symbol not found for ...`, which would put a
+     * compiler diagnostic inside a symbol's identity — different messages for the same declaration
+     * across runs, and edges that can never match it. It degrades to `?` instead.
+     */
+    private fun KaSession.typeName(type: KaType): String = when (type) {
+        is KaClassType -> type.classId?.asFqNameString() ?: UNRESOLVED
+        is KaErrorType -> UNRESOLVED
+        else -> type.toString()
+    }
 
     private fun KaSession.fqNameOf(symbol: KaDeclarationSymbol): String? = when (symbol) {
         is KaClassSymbol -> symbol.classId?.asFqNameString()
@@ -271,14 +280,27 @@ class AnalysisApiIndexer(
     }
 
     /** The declaration header: everything before the body, which is what a stub tier renders. */
+    /**
+     * The declaration's header: everything before its body, minus the doc comment.
+     *
+     * The doc is carried separately by [Symbol.doc], so leaving it here charged for it twice — and
+     * on detekt, whose rules document themselves with whole code examples, that made a class stub
+     * cost hundreds of tokens. One task's gold ranked first and still could not afford its way
+     * into the pack.
+     */
     private fun signatureOf(declaration: KtDeclaration): String {
+        val afterDoc = declaration.docComment
+            ?.let { it.startOffsetInParent + it.textLength }
+            ?.coerceAtMost(declaration.textLength)
+            ?: 0
         val bodyOffset = when (declaration) {
             is KtNamedFunction -> declaration.bodyExpression?.startOffsetInParent
             is KtProperty -> declaration.initializer?.startOffsetInParent
             is KtClassOrObject -> declaration.body?.startOffsetInParent
             else -> null
         } ?: declaration.textLength
-        return declaration.text.take(bodyOffset).trim().removeSuffix("=").trim()
+        if (bodyOffset <= afterDoc) return declaration.text.take(bodyOffset).trim()
+        return declaration.text.substring(afterDoc, bodyOffset).trim().removeSuffix("=").trim()
     }
 
     /**
@@ -313,4 +335,8 @@ class AnalysisApiIndexer(
         this is KtClassOrObject || this is KtNamedFunction || this is KtProperty || this is KtSecondaryConstructor
 
     override fun close() = Disposer.dispose(disposable)
+
+    private companion object {
+        const val UNRESOLVED = "?"
+    }
 }

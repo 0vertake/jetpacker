@@ -21,6 +21,9 @@ class Bm25Retriever(
     private val repoRoot: Path,
     override val name: String = "bm25",
     private val fullTierShare: Double = Packer.DEFAULT_FULL_TIER_SHARE,
+    // The engine found that spec names match task prose better than the code under test does.
+    // That is a property of the corpus, not of the engine, so the baseline is given it too.
+    private val testPenalty: Double = SeedFinder.DEFAULT_TEST_PENALTY,
 ) : Retriever {
     private val finder = SeedFinder(index)
 
@@ -28,7 +31,7 @@ class Bm25Retriever(
         // Rank position stands in for a score: BM25 magnitudes are not comparable across tasks,
         // and the packer only needs a monotone ordering to compute density.
         // Enough candidates to fill the budget; a shorter list left the baseline underspending it.
-        val ranked = finder.search(task, CANDIDATES).mapIndexed { rank, symbol ->
+        val ranked = finder.search(task, CANDIDATES, testPenalty).mapIndexed { rank, symbol ->
             Ranked(index.symbols[symbol], 1.0 / (rank + 1), "bm25")
         }
         return Packer(index, repoRoot, budget, fullTierShare).pack(ranked)

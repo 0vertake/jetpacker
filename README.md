@@ -29,20 +29,21 @@ for the full research and build plan.
 ## Status
 
 The pipeline runs end to end and the Level-1 benchmark is wired up. On 47 tasks
-mined from detekt's history, at a 4k-token budget, recall of the declarations a
-commit changed:
+mined from detekt's history, recall of the declarations each commit changed:
 
 | | 1k | 2k | 4k | 8k |
 |---|----|----|----|----|
-| Jetpacker | **50.6%** | 55.3% | **67.6%** | **69.5%** |
-| BM25 over declarations | 46.0% | **56.2%** | 60.0% | 60.4% |
+| Jetpacker | **51.2%** | **59.1%** | **66.8%** | **73.4%** |
+| BM25 over declarations | 46.5% | 54.2% | 61.7% | 67.2% |
 | Chunk RAG (40-line windows) | 20.1% | 23.5% | 28.4% | 32.7% |
-| Aider-style repo map | 3.2% | 3.4% | 13.0% | 19.0% |
+| Aider-style repo map | 3.2% | 3.2% | 11.8% | 19.0% |
+| Same seeds, no graph expansion | 23.9% | 42.7% | 56.4% | 61.3% |
 
-Keyword search stops converting budget into recall around 2k; structural
-expansion does not. Read [`docs/results.md`](docs/results.md) before quoting
-any of this — one repository carries the whole result, and Level 2 (does a
-better pack produce a better patch?) is not measured yet.
+Retrieving whole declarations instead of windows is worth more than any ranking
+change, and structural expansion is worth 10–27 points over the seeds alone.
+Read [`docs/results.md`](docs/results.md) before quoting any of this: two
+repositories carry the whole result, one of them disagrees at 1k, and Level 2
+(does a better pack produce a better patch?) is not measured yet.
 
 ## Layout
 

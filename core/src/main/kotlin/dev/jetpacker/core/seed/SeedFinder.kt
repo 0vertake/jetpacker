@@ -9,13 +9,22 @@ data class Seed(val id: String, val score: Double, val why: String)
 /**
  * Turns task text into the symbols a pack should be built around.
  *
+ * [testPenalty] applies to seeds only. Spec-style test names are English sentences, so they match
+ * task prose better than the code under test does: on detekt the top seeds for "Don't leak
+ * AnalysisApi types" were five variants of `AnnotationExcluderSpec.difference between Analysis API
+ * and no Analysis API`, and expansion then restarted inside the test suite. Tests still reach a
+ * pack the way they should — through a `test-of` edge from the code they exercise.
+ *
  * Two channels, fused with Reciprocal Rank Fusion: BM25 over declaration names and docs, and
  * exact hits on identifiers the task quotes literally. They fail in different ways — BM25 is
  * robust to paraphrase but ranks a quoted `FooBar` no higher than any other term, while exact
  * matching is precise and brittle — so RRF is used rather than a weighted sum, since it needs no
  * calibration between two incomparable score scales.
  */
-class SeedFinder(private val index: CodeIndex) {
+class SeedFinder(
+    private val index: CodeIndex,
+    private val testPenalty: Double = DEFAULT_TEST_PENALTY,
+) {
     private val bm25 = Bm25(index.symbols.map(::documentOf))
 
     /** Symbols named outright in the task, by exact identifier — case-sensitive on purpose. */
@@ -25,15 +34,20 @@ class SeedFinder(private val index: CodeIndex) {
     fun find(task: String, limit: Int = DEFAULT_SEEDS): List<Seed> {
         val ranked = mapOf(
             "seed:mentioned" to exactMatches(task),
-            "seed:search" to search(task),
+            "seed:search" to search(task, CANDIDATES, testPenalty),
         )
         return fuse(ranked).take(limit)
     }
 
     /** BM25 alone, exposed so the baseline can run the identical ranking without the graph. */
-    fun search(task: String, limit: Int = CANDIDATES): List<Int> =
+    fun search(task: String, limit: Int = CANDIDATES, testPenalty: Double = 1.0): List<Int> =
         bm25.score(terms(task)).entries
-            .sortedWith(compareByDescending<Map.Entry<Int, Double>> { it.value }.thenBy { index.symbols[it.key].id })
+            .sortedWith(
+                compareByDescending<Map.Entry<Int, Double>> {
+                    it.value * if (index.symbols[it.key].isTest) testPenalty else 1.0
+                }
+                    .thenBy { index.symbols[it.key].id },
+            )
             .map { it.key }
             .take(limit)
 
@@ -71,7 +85,7 @@ class SeedFinder(private val index: CodeIndex) {
             .flatMap { byName[it].orEmpty() }
             .distinct()
             // Nothing separates two symbols that share a quoted name, so order by id for stability.
-            .sortedBy { index.symbols[it].id }
+            .sortedWith(compareBy({ index.symbols[it].isTest }, { index.symbols[it].id }))
             .toList()
     }
 
@@ -82,15 +96,18 @@ class SeedFinder(private val index: CodeIndex) {
     private fun documentOf(symbol: Symbol): List<String> =
         terms(symbol.name) + terms(symbol.name) + terms(symbol.fqName) + terms(symbol.doc.orEmpty())
 
-    private companion object {
-        const val RRF_K = 60
-        const val CANDIDATES = 200
-        const val DEFAULT_SEEDS = 20
+    companion object {
+        /** On detekt every value below 1.0 scored the same, so this only has to break the tie. */
+        const val DEFAULT_TEST_PENALTY = 0.3
 
-        val IDENTIFIER = Regex("""[A-Za-z_][A-Za-z0-9_]*""")
-        val BACKTICKED = Regex("""`([^`\n]+)`""")
+        private const val RRF_K = 60
+        private const val CANDIDATES = 200
+        private const val DEFAULT_SEEDS = 20
+
+        private val IDENTIFIER = Regex("""[A-Za-z_][A-Za-z0-9_]*""")
+        private val BACKTICKED = Regex("""`([^`\n]+)`""")
 
         /** `GreetingService`, `parseKtFile`, `snake_case` — but not an ordinary English word. */
-        val COMPOUND_NAME = Regex("""\b[A-Za-z][A-Za-z0-9]*(?:[A-Z][A-Za-z0-9]*|_[A-Za-z0-9]+)+\b""")
+        private val COMPOUND_NAME = Regex("""\b[A-Za-z][A-Za-z0-9]*(?:[A-Z][A-Za-z0-9]*|_[A-Za-z0-9]+)+\b""")
     }
 }
