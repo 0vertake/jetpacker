@@ -21,7 +21,14 @@ application {
 
 tasks.named<JavaExec>("run") {
     // Let `-Pjetpacker.repo=...` reach the harness without a wrapper script.
-    listOf("jetpacker.repo", "jetpacker.tasks", "jetpacker.budgets", "jetpacker.cache").forEach {
+    listOf(
+        "jetpacker.repo",
+        "jetpacker.tasks",
+        "jetpacker.budgets",
+        "jetpacker.cache",
+        "jetpacker.harbor",
+        "jetpacker.harbor.repo",
+    ).forEach {
         providers.gradleProperty(it).orNull?.let { value -> systemProperty(it, value) }
     }
 }
