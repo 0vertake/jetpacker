@@ -41,7 +41,7 @@ fun main() {
 
     for ((at, task) in tasks.withIndex()) {
         val snapshot = runCatching { indexes.at(task.baseCommit) }.getOrElse {
-            System.err.println("  [${task.id}] skipped: ${it.message?.lines()?.first()}")
+            System.err.println("  [${task.id}] skipped: ${it.reason()}")
             skipped++
             continue
         }
@@ -75,6 +75,20 @@ fun main() {
     report(unnamedSlice, 0)
     reportDiagnostics(diagnoses)
     exitProcess(0)
+}
+
+/**
+ * The failure's own message plus its deepest cause.
+ *
+ * A Gradle Tooling API failure says "Could not fetch model of type 'IdeaProject'" at the top and
+ * names the actual build problem several causes down, which is the difference between "this
+ * repository does not work" and a JDK version to change.
+ */
+private fun Throwable.reason(): String {
+    val root = generateSequence(this) { it.cause }.last()
+    val head = message?.lines()?.first().orEmpty()
+    if (root === this) return head
+    return "$head <- ${root::class.simpleName}: ${root.message?.lines()?.first()}"
 }
 
 /** The budget the slices and diagnostics describe, and the one results are quoted at. */

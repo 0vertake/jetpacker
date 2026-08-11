@@ -80,6 +80,39 @@ At 4k the gold declaration is somewhere in the ranking for all 28 tasks and surv
 a rule's *behaviour* whose fix lands in a visitor nobody named, where the top seeds are the rule
 class and the API it implements and the edited helper sits a hundred places down.
 
+### A second repository from the suite
+
+ktlint, all 43 of its Kotlin Benchmark tasks — the largest block in the suite, and much harder than
+detekt in absolute terms:
+
+| retriever | 1k | 2k | 4k | 8k |
+|-----------|----|----|----|----|
+| `jp:all-stubs` | **17.2%** | **28.9%** | **41.9%** | **55.0%** |
+| `jp:default` | 16.3% | 28.1% | 38.5% | 51.4% |
+| `jp:seed-tests` | 13.3% | 21.5% | 32.2% | 36.1% |
+| `seeds-only` | 13.0% | 17.0% | 25.4% | 42.7% |
+| `bm25:full.00` | 15.5% | 20.1% | 31.5% | 51.4% |
+| `bm25:full.30` | 12.1% | 16.6% | 21.6% | 36.1% |
+| `chunk-bm25` | 3.4% | 3.4% | 3.4% | 5.8% |
+| `repo-map` | 0.6% | 2.5% | 2.8% | 6.8% |
+| `file-dump` | 5.1% | 3.8% | 4.8% | 4.3% |
+
+Same ordering as detekt, and this time the engine leads at every budget including 1k. Two things are
+different and both are worth reading.
+
+**File recall inverts.** At 4k the engine finds 41.9% of gold declarations while touching 63.9% of
+the gold files; BM25 finds 31.5% while touching 82.6%. Expansion concentrates the budget on a
+neighbourhood and gets the declarations inside it; keyword ranking scatters signatures across more
+files and lands on fewer of the right ones. File-level accuracy would have called that a loss.
+
+**Test seeding is expensive here.** `jp:seed-tests` costs 19 points at 8k, against 12.8 on mined
+detekt commits and roughly nothing on detekt issues. ktlint's rule tests are named after the
+behaviour they assert, at length, which is exactly the text an issue about that behaviour uses.
+
+The median rank of the best gold declaration is 80, against 12 on detekt: the graph reaches the
+answer for all 43 tasks but often only after a hundred other declarations, which is why recall keeps
+climbing steeply with the budget rather than saturating.
+
 ## Results: mined commit messages
 
 detekt, 60 tasks from the last few hundred commits. Recall@budget:
@@ -172,12 +205,15 @@ around it is worth 20 points over ranking by the words alone.
 
 Read these before quoting any number above.
 
-- **Two repositories, one of them easy.** detekt carries the result. Exposed agrees at 4k and
-  disagrees at 1k, where BM25 beats the engine. The Exposed table also predates the source-root fix
-  below, so it is not directly comparable to the detekt tables.
-- **28 of the Kotlin Benchmark's 105 tasks.** Only detekt is run. The other seven repositories need
-  their own checkouts and build models, and ktlint's current build needs a JDK this harness does not
-  use.
+- **71 of the Kotlin Benchmark's 105 tasks.** detekt and ktlint run; the other six repositories do
+  not, and each is blocked differently: ort by indexing cost (13 minutes a commit, and the run died
+  partway), okhttp by its Gradle model read, dataframe by an Analysis API resolution crash,
+  Anki-Android by needing the Android SDK, TeXiFy by an IntelliJ plugin build. Nothing about the
+  missing 34 tasks is known to favour or disfavour the engine, but nothing rules it out either.
+- **Exposed predates the source-root fix**, so its table is not directly comparable to the others.
+- **ktlint's build model is read at a 2025 commit**, not at HEAD, because the current build needs a
+  newer JDK than this harness runs. Every base commit in its 43 tasks is older than that, so the
+  model is at worst as stale as it is for any other repository here.
 - **The Kotlin Benchmark is used at Level 1 only.** Its Docker environments and test verifiers —
   the part that decides whether a patch actually resolves a task — are ignored here. Nothing in this
   document is a Kotlin Benchmark score.
@@ -210,6 +246,14 @@ git clone --depth 1 https://github.com/Kotlin/kotlin-swe-bench /tmp/kotlin-swe-b
 ./gradlew :eval:run -Pjetpacker.repo=/tmp/detekt \
   -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=detekt \
   -Pjetpacker.tasks=28 -Pjetpacker.budgets=1000,2000,4000,8000
+
+# ktlint, whose build model has to be read at a commit a JDK 21 toolchain can configure.
+git clone https://github.com/pinterest/ktlint /tmp/ktlint
+git -C /tmp/ktlint checkout eab1e9dfd37386c417dad06ca9386efb84878c61
+./gradlew :eval:run -Pjetpacker.repo=/tmp/ktlint \
+  -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=ktlint \
+  -Pjetpacker.tasks=43 -Pjetpacker.budgets=1000,2000,4000,8000 \
+  -Pjetpacker.cache=$HOME/.jetpacker-ktlint
 
 # Mined commit messages, same repository.
 ./gradlew :eval:run -Pjetpacker.repo=/tmp/detekt -Pjetpacker.tasks=60 \
