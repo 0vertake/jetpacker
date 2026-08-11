@@ -36,6 +36,7 @@ only thing that varies is which declarations get chosen and in what order.
 | `jp:all-stubs` | the same, spending nothing on bodies |
 | `jp:seed-tests` | ablation: test declarations allowed to seed on their names |
 | `seeds-only` | ablation: structural expansion switched off, same seed ranking |
+| `jp:-calls` … `jp:-testcode` | ablations: one relation removed at a time, tabled [below](#which-relation-earns-the-win) |
 | `bm25:full.00` | BM25 over whole declarations, signatures only |
 | `bm25:full.30` | BM25 over whole declarations, 30% of the budget on bodies |
 | `chunk-bm25` | chunk RAG: fixed 40-line windows ranked by BM25 |
@@ -204,6 +205,53 @@ dropped rather than kept as a tuning knob.
 Its single task in the suite runs. One task is a coin flip — every arm scores 0% or 100%, and at
 4k the shipped default scores 0% while `jp:seed-tests` and `repo-map` score 100%; by 8k the default
 finds it too. Reported as coverage, not as a result.
+
+## Which relation earns the win
+
+`seeds-only` says expansion pays. These say what it is paying for: one relation removed at a time
+from `jp:default`, on the three repositories with a sample worth reading. Each cell is
+recall@budget and its change against the default.
+
+| removed | detekt 4k | detekt 8k | ktlint 4k | ktlint 8k | ort 4k | ort 8k |
+|---------|-----------|-----------|-----------|-----------|--------|--------|
+| nothing (`jp:default`) | 70.8 | 81.2 | 38.5 | 51.4 | 51.8 | 59.6 |
+| callers of a declaration | 71.9 (+1.1) | 81.2 (0.0) | 24.9 (**−13.6**) | 45.1 (−6.3) | 43.8 (−8.0) | 50.5 (−9.1) |
+| the call relation entirely | 75.7 (+4.9) | 82.1 (+0.9) | 35.3 (−3.2) | 48.5 (−2.9) | 47.2 (−4.6) | 51.0 (−8.6) |
+| implementations and supertypes | 78.9 (+8.1) | 74.0 (−7.2) | 39.6 (+1.1) | 53.4 (+2.0) | 53.0 (+1.2) | 61.2 (+1.6) |
+| containment (class ↔ member) | 64.4 (−6.4) | 75.4 (−5.8) | 32.2 (−6.3) | 49.5 (−1.9) | 51.8 (0.0) | 61.0 (+1.4) |
+| co-location (same file) | 68.4 (−2.4) | 76.2 (−5.0) | 34.5 (−4.0) | 49.6 (−1.8) | 49.0 (−2.8) | 48.6 (**−11.0**) |
+| test code, refused entirely | 72.6 (+1.8) | 77.6 (−3.6) | 38.5 (0.0) | 51.4 (0.0) | 51.8 (0.0) | 59.6 (0.0) |
+
+One task is worth about 2.3 points on ktlint's 43, 3.6 on detekt's 28 and 8.3 on ort's 12, so read
+anything under about 3 points as noise on the first two and under 8 on ort.
+
+**Callers are the relation that pays.** Removing the edge from a declaration to the code that calls
+it costs 13.6 points on ktlint at 4k and 6 to 9 on ort at both budgets — the largest single loss in
+the table. This is also the relation that most needs resolution: finding the callers of an
+overloaded or extension function is exactly where surface-name matching gets it wrong, and it is the
+part of the thesis the ablation supports most directly.
+
+**Implementations do not pay, which the plan did not predict.** Removing `extends` and `overrides`
+in both directions is neutral or a small gain on five of the six columns; only detekt at 8k loses
+by 7.2. The design argued that given an interface method, its implementations are usually the code
+that needs changing — the Spring-style dependency-injection case. On these three repositories that
+is not where the fixes are, and the edge is carrying its weight in one column out of six. It stays
+on because one clear loss on detekt is a reason for caution, not because the evidence favours it.
+
+**Co-location is worth keeping.** The file-node star is the one relation invented here rather than
+taken from the code graph, and removing it costs points in five of six columns, including 11 on ort
+at 8k. It was added because the benchmark kept finding the right *file* and the wrong declaration
+inside it, and it is still doing that job.
+
+**The test cap already did the work.** Refusing test code entirely changes nothing at all on ktlint
+and ort, and moves detekt by less than the noise floor. Once tests are capped at 10% of the budget,
+whether they are there at all is not what decides a run.
+
+**detekt disagrees about calls, and that is the honest shape of it.** Removing the call relation
+*gains* 4.9 points there at 4k while costing 3 to 9 on ktlint and ort. detekt's tasks are rule
+implementations whose fix lives in one class with its members — which is why containment is what it
+loses most from — while ort's are spread across a much larger codebase where reaching the right
+neighbourhood requires following calls. No single relation is load-bearing everywhere.
 
 ## Results: mined commit messages
 
