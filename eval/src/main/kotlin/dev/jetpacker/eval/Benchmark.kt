@@ -22,8 +22,14 @@ fun main() {
     val budgets = (System.getProperty("jetpacker.budgets") ?: "$HEADLINE_BUDGET").split(",").map { it.trim().toInt() }
     val cache = Path.of(System.getProperty("jetpacker.cache") ?: "${System.getProperty("user.home")}/.jetpacker")
 
-    val tasks = mineTasks(repo, wanted)
-    println("mined ${tasks.size} tasks from ${repo.fileName}, budgets ${budgets.joinToString(", ")}")
+    val harbor = System.getProperty("jetpacker.harbor")?.let { Path.of(it) }
+    val tasks = when (harbor) {
+        null -> mineTasks(repo, wanted)
+        // The suite names repositories as their upstream does, which a local clone need not.
+        else -> harborTasks(harbor, System.getProperty("jetpacker.harbor.repo") ?: repo.fileName.toString(), wanted)
+    }
+    val source = if (harbor == null) "mined from" else "Kotlin Benchmark issues for"
+    println("${tasks.size} tasks $source ${repo.fileName}, budgets ${budgets.joinToString(", ")}")
 
     val indexes = Indexes(repo, cache)
     val results = budgets.associateWith { LinkedHashMap<String, MutableList<Score>>() }

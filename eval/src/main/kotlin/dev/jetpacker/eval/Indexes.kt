@@ -55,15 +55,19 @@ class Indexes(private val repo: Path, cacheDir: Path) {
     }
 
     private fun index(checkout: Path): CodeIndex {
-        // Source roots come from HEAD's model; map them onto this revision and drop any that a
-        // module did not have yet.
-        val roots = project.sourceRoots.mapNotNull { relocate(it, checkout) }
+        // HEAD's model cannot see a module that existed at this revision and was later renamed,
+        // so the checkout's own layout supplies the rest: without it, five of detekt's 28 Kotlin
+        // Benchmark tasks had no indexed file to find and left the sample as unscorable.
+        val conventional = conventionalRoots(checkout)
+        val fromModel = project.sourceRoots.mapNotNull { relocate(it, checkout) }
+        val fromModelTests = project.testRoots.mapNotNull { relocate(it, checkout) }
+
         return AnalysisApiIndexer(
-            sourceRoots = roots,
+            sourceRoots = (fromModel + conventional).distinct().sorted(),
             classpath = project.classpath,
             jdkHome = Path.of(System.getProperty("java.home")),
             repoRoot = checkout,
-            testRoots = project.testRoots.mapNotNull { relocate(it, checkout) },
+            testRoots = (fromModelTests + conventional.filter { it.isTestRoot() }).distinct().sorted(),
         ).use { it.index() }
     }
 
@@ -72,6 +76,19 @@ class Indexes(private val repo: Path, cacheDir: Path) {
 
     private fun Path.toRealPathOrSelf(): Path = runCatching { toRealPath() }.getOrDefault(this)
 
+    /** `<module>/src/<source set>/kotlin`, the layout every Gradle JVM module in these repos uses. */
+    private fun conventionalRoots(checkout: Path): List<Path> =
+        checkout.toFile().walkTopDown()
+            .onEnter { it.name != ".git" && it.name != "build" }
+            .filter { it.isDirectory && (it.name == "kotlin" || it.name == "java") }
+            .filter { it.parentFile?.parentFile?.name == "src" }
+            .map { it.toPath() }
+            .toList()
+
+    /** The source set is the directory above: `test`, but also `functionalTest`, `androidTest`. */
+    private fun Path.isTestRoot(): Boolean =
+        parent.fileName.toString().let { it == "test" || it.endsWith("Test") }
+
     private companion object {
         /**
          * Bump whenever what the indexer *produces* changes — symbol ids, signatures, edges.
@@ -79,6 +96,6 @@ class Indexes(private val repo: Path, cacheDir: Path) {
          * every cached index describing the old code with the new code's name for it, and a
          * benchmark run silently measured a mixture of the two.
          */
-        const val SCHEMA = 2
+        const val SCHEMA = 3
     }
 }
