@@ -1,6 +1,7 @@
 package dev.jetpacker.eval
 
 import dev.jetpacker.baselines.Bm25Retriever
+import dev.jetpacker.baselines.ChunkRetriever
 import dev.jetpacker.baselines.FileDumpRetriever
 import dev.jetpacker.core.Jetpacker
 import dev.jetpacker.core.Retriever
@@ -78,16 +79,13 @@ private fun retrievers(snapshot: Snapshot): List<Retriever> = listOf(
     // leaving them on a body-heavy default would have flattered us by ten points.
     Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.00", fullTierShare = 0.00),
     Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.30", fullTierShare = 0.30),
+    ChunkRetriever(snapshot.index, snapshot.root),
     FileDumpRetriever(snapshot.index, snapshot.root),
     Jetpacker(snapshot.root, snapshot.index, EdgeWeights().none(), name = "seeds-only"),
     // One variable at a time off `base`, so a difference has one cause.
-    engine(snapshot, "k:1", rrfK = 1),
-    engine(snapshot, "k:3", rrfK = 3),
-    engine(snapshot, "k:5", rrfK = 5),
-    engine(snapshot, "k:10", rrfK = 10),
-    engine(snapshot, "k:20", rrfK = 20),
-    engine(snapshot, "k:10+s40", rrfK = 10, seeds = 40),
-    engine(snapshot, "k:10+f.15", rrfK = 10, fullTierShare = 0.15),
+    engine(snapshot, "all-stubs"),
+    engine(snapshot, "default", fullTierShare = 0.15),
+    engine(snapshot, "graph-only", fullTierShare = 0.15, fuseSearch = false),
 )
 
 private fun engine(
