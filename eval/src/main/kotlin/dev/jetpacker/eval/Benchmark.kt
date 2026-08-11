@@ -19,17 +19,18 @@ import kotlin.system.exitProcess
 fun main() {
     val repo = Path.of(System.getProperty("jetpacker.repo") ?: error("set -Djetpacker.repo=<path>"))
     val wanted = System.getProperty("jetpacker.tasks")?.toInt() ?: 30
-    val budget = System.getProperty("jetpacker.budget")?.toInt() ?: 4000
+    val budgets = (System.getProperty("jetpacker.budgets") ?: "$HEADLINE_BUDGET").split(",").map { it.trim().toInt() }
     val cache = Path.of(System.getProperty("jetpacker.cache") ?: "${System.getProperty("user.home")}/.jetpacker")
 
     val tasks = mineTasks(repo, wanted)
-    println("mined ${tasks.size} tasks from ${repo.fileName}, budget $budget tokens")
+    println("mined ${tasks.size} tasks from ${repo.fileName}, budgets ${budgets.joinToString(", ")}")
 
     val indexes = Indexes(repo, cache)
-    val results = LinkedHashMap<String, MutableList<Score>>()
+    val results = budgets.associateWith { LinkedHashMap<String, MutableList<Score>>() }
     val diagnoses = mutableListOf<Diagnosis>()
     val namedSlice = LinkedHashMap<String, MutableList<Score>>()
     val unnamedSlice = LinkedHashMap<String, MutableList<Score>>()
+    val headline = budgets.firstOrNull { it == HEADLINE_BUDGET } ?: budgets.first()
     var skipped = 0
 
     for ((at, task) in tasks.withIndex()) {
@@ -47,29 +48,31 @@ fun main() {
 
         val named = namesItsTarget(snapshot.index, task, gold)
         for (retriever in retrievers(snapshot)) {
-            val pack = retriever.pack(task.text, budget)
-            val scored = score(snapshot.index, pack, gold)
-            results.getOrPut(retriever.name) { mutableListOf() } += scored
-            (if (named) namedSlice else unnamedSlice).getOrPut(retriever.name) { mutableListOf() } += scored
+            for (budget in budgets) {
+                val scored = score(snapshot.index, retriever.pack(task.text, budget), gold)
+                results.getValue(budget).getOrPut(retriever.name) { mutableListOf() } += scored
+                if (budget != headline) continue
+                (if (named) namedSlice else unnamedSlice).getOrPut(retriever.name) { mutableListOf() } += scored
+            }
         }
-        diagnoses += diagnose(
-            snapshot.index,
-            engine(snapshot, "base"),
-            task,
-            gold,
-            budget,
-        )
+        diagnoses += diagnose(snapshot.index, engine(snapshot, "default", fullTierShare = 0.15), task, gold, headline)
         println("  [${at + 1}/${tasks.size}] ${task.id}  gold=${gold.size}")
     }
 
-    report(results, skipped)
-    println("\n--- tasks whose text names a changed declaration (keyword search at its best)")
+    for (budget in budgets) {
+        println("\n=== budget $budget tokens")
+        report(results.getValue(budget), skipped)
+    }
+    println("\n--- at $headline tokens, tasks whose text names a changed declaration")
     report(namedSlice, 0)
-    println("\n--- tasks whose text names none of them (the case structure is for)")
+    println("\n--- at $headline tokens, tasks whose text names none of them (the case structure is for)")
     report(unnamedSlice, 0)
     reportDiagnostics(diagnoses)
     exitProcess(0)
 }
+
+/** The budget the slices and diagnostics describe, and the one results are quoted at. */
+private const val HEADLINE_BUDGET = 4000
 
 /**
  * Everything scored on each task. Same budget, same packer, same token accounting — the only
