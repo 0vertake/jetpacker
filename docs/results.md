@@ -36,6 +36,7 @@ only thing that varies is which declarations get chosen and in what order.
 | `jp:all-stubs` | the same, spending nothing on bodies |
 | `jp:seed-tests` | ablation: test declarations allowed to seed on their names |
 | `seeds-only` | ablation: structural expansion switched off, same seed ranking |
+| `names-only` | ablation: resolution off — call edges rebuilt by matching bare names |
 | `jp:-calls` … `jp:-testcode` | ablations: one relation removed at a time, tabled [below](#which-relation-earns-the-win) |
 | `bm25:full.00` | BM25 over whole declarations, signatures only |
 | `bm25:full.30` | BM25 over whole declarations, 30% of the budget on bodies |
@@ -206,6 +207,43 @@ Its single task in the suite runs. One task is a coin flip — every arm scores 
 4k the shipped default scores 0% while `jp:seed-tests` and `repo-map` score 100%; by 8k the default
 finds it too. Reported as coverage, not as a result.
 
+## Is resolution worth it?
+
+This is the ablation the project exists for (docs/plan.md §5), and it had been missing: `seeds-only`
+asks whether expanding the graph pays, not whether *resolved* edges beat the name-matched ones a
+parser produces without a compiler.
+
+`names-only` is the same engine with its call edges rebuilt from bare names — `format(x)` links to
+every `format` in the repository. Same declarations, same seeds, same ranker, same packer, same
+budget; the only difference is whether an edge knows which declaration was meant.
+
+| repository | 1k | 2k | 4k | 8k |
+|------------|----|----|----|----|
+| detekt: resolved | **42.8** | **53.5** | **70.8** | **81.2** |
+| detekt: names only | 41.3 | 50.1 | 59.7 | 63.4 |
+| ktlint: resolved | **16.3** | **28.1** | **38.5** | **51.4** |
+| ktlint: names only | 15.3 | 25.6 | 34.8 | 46.3 |
+| ort: resolved | **28.0** | **37.4** | **51.8** | **59.6** |
+| ort: names only | 23.7 | 33.7 | 42.9 | 51.2 |
+
+**Resolution wins in all twelve columns, by 1.0 to 17.8 points, and the margin grows with the
+budget.** At 1k it is worth 1 to 4 points — with room for a few dozen signatures, the first handful
+of seeds dominate and edge quality barely matters. By 8k it is worth 5.1 on ktlint, 8.4 on ort and
+17.8 on detekt, because a larger budget means following more edges and a name-matched edge is wrong
+more often the further you walk it.
+
+**On detekt, name-matched expansion is worse than no expansion at all**: 63.4% against
+`seeds-only`'s 66.5% at 8k. Expanding along ambiguous edges is not a weaker version of expanding
+along resolved ones, it is actively harmful — it spends the budget on the wrong `visit`. On ktlint
+and ort surface structure still beats no structure, so this is a property of the repository, not a
+universal law.
+
+Three things make `names-only` stronger than a real tree-sitter pack, all deliberate: it takes its
+declaration list from the PSI index, so its nodes are exactly right; only calls are degraded, while
+containment and supertypes stay resolved; and a name declared in more than 20 places is dropped
+rather than linked to all of them, which spares it the worst of what ambiguity does. The 1.0-to-17.8
+range is therefore a floor on what resolution buys, not a ceiling.
+
 ## Which relation earns the win
 
 `seeds-only` says expansion pays. These say what it is paying for: one relation removed at a time
@@ -371,7 +409,12 @@ Read these before quoting any number above.
 - **The repo map is being used as something it is not.** Aider builds a whole-repo overview,
   personalized by the files already in the chat. Scored as a task retriever with no chat files, it
   ranks by global importance instead of task relevance. Its low score is a statement about that
-  use, not about Aider.
+  use, not about Aider — which is why `names-only`, and not the repo map, is the arm that carries
+  the surface-versus-resolved comparison.
+- **No tree-sitter is involved in measuring resolution.** `names-only` degrades the resolved index
+  rather than parsing the repository again, so it isolates resolution from parser technology. A real
+  tree-sitter pack would also have an approximate declaration list, which this arm does not: it is
+  the stronger opponent, not the faithful one.
 - **Tuned on detekt.** The seed penalty, the body share and the decision to drop search fusion were
   all chosen against detekt's mined tasks. ktlint, ort, dataframe, TeXiFy and Exposed were never
   tuned on, which is what makes them worth reading — and TeXiFy is what that buys you.
