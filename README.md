@@ -48,6 +48,12 @@ history. Removing one relation at a time says the callers of a declaration are
 what earns that — worth up to 13.6 points — while implementations and supertypes,
 which the design expected to be the wedge, pay in one column out of six.
 
+**Resolution itself is worth 1 to 17.8 points**, and the margin grows with the
+budget. The same engine over call edges rebuilt from bare names — what a parser
+can produce without a compiler — loses in all twelve repository-and-budget
+columns, and on detekt at 8k it does worse than not expanding the graph at all.
+Following an ambiguous edge is not a weaker version of following a resolved one.
+
 It does not hold everywhere: on TeXiFy, an IDE plugin whose issues describe what
 a LaTeX user saw rather than any code, the engine loses to BM25 at every budget
 and to its own no-expansion ablation. Read
