@@ -35,6 +35,10 @@ benchmark design, milestones, and kill-tests.
 - Run the embedding baseline (opt-in, downloads a 90MB model): add `-Pjetpacker.embed=true`
  to `:eval:run`, or `-Djetpacker.embed=true` to `:baselines:test`. Off by default because it
  roughly doubles a benchmark run.
+- Certify Level-2 tasks (needs Docker, ~18 min and ~6GB of image per task):
+ `./gradlew :eval:certify -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=detekt`
+ Base images must exist first: `scripts/build_bases.sh` in the benchmark repo, or one
+ `docker build -f bases/<repo>/Dockerfile.base -t kotlin-bench/<repo>:base bases/<repo>`.
 
 ## Analysis API dependency wiring (hard-won; don't "simplify" it)
 
