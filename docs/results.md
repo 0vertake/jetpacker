@@ -179,9 +179,9 @@ aborted the entire index. Resolution failures are now caught where they happen, 
 counted as unresolved and the other 73,000 in the repository still are.
 
 That is also the caveat on the whole table. Only **37.6%** of dataframe's call sites resolve to a
-declaration, against over 95% on detekt: it is generated-heavy, compiler-plugin-driven code, and the
-graph the engine ranks over is correspondingly thin. The gap over BM25 at 8k is what expansion
-manages on a third of the edges.
+declaration, against 96% on detekt at a recent commit: it is generated-heavy,
+compiler-plugin-driven code, and the graph the engine ranks over is correspondingly thin. The gap
+over BM25 at 8k is what expansion manages on a third of the edges.
 
 ### A fifth: TeXiFy, where the engine loses
 
@@ -438,7 +438,7 @@ Read these before quoting any number above.
   Anki-Android (6) needs an Android SDK, and okhttp (2) needs a GraalVM toolchain its build demands
   by vendor and cannot auto-provision on this machine. Nothing about those 8 is known to favour or
   disfavour the engine.
-- **dataframe's graph is thin.** 37.6% of its call sites resolve, against over 95% on detekt, so
+- **dataframe's graph is thin.** 37.6% of its call sites resolve, against 96% on recent detekt, so
   its numbers say less about ranking than the others do. Resolution failures no longer abort an
   index, but a call that does not resolve is still an edge the engine does not have.
 - **Exposed predates the source-root fix**, so its table is not directly comparable to the others.
@@ -487,7 +487,10 @@ Read these before quoting any number above.
   classpath reused for every base commit, with source roots taken from the checkout's own layout.
   Both detekt suites now score every task they mine — earlier runs dropped 13 of 60 — but a
   declaration whose type comes from a dependency that has since changed can still resolve
-  differently than it did at the time.
+  differently than it did at the time. **That cost is measurable and it falls on the oldest tasks:**
+  across detekt's cached indexes, whole-repository resolution runs 96–97% at 2023–2025 commits and
+  76% at the oldest one, October 2021. The graph the ranker sees is thinner the further a task is
+  from HEAD, so detekt's older tasks are handicapped rather than flattered by this shortcut.
 
 ## Reproducing
 
