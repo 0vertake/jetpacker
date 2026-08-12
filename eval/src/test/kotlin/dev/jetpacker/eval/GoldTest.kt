@@ -1,6 +1,8 @@
 package dev.jetpacker.eval
 
 import dev.jetpacker.core.index.CodeIndex
+import dev.jetpacker.core.index.Edge
+import dev.jetpacker.core.index.EdgeKind
 import dev.jetpacker.core.index.ResolutionCoverage
 import dev.jetpacker.core.index.Symbol
 import dev.jetpacker.core.index.SymbolKind
@@ -9,6 +11,7 @@ import dev.jetpacker.core.pack.Pack
 import dev.jetpacker.core.pack.PackItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Ground truth decides every number the benchmark reports, so a quiet bug here would not fail a
@@ -94,6 +97,37 @@ class GoldTest {
         assertEquals(0.5, score.recall)
         assertEquals(1.0, score.precision)
         assertEquals(1.0, score.fileRecall, "both gold declarations live in the same file")
+    }
+
+    @Test
+    fun `gives a caller of gold half credit`() {
+        val gold = symbol("Rule.visit", 5, 10)
+        val caller = symbol("Runner.run", 20, 25)
+        val index = CodeIndex(
+            symbols = listOf(gold, caller),
+            edges = listOf(Edge("Runner.run", "Rule.visit", EdgeKind.CALLS)),
+            coverage = ResolutionCoverage(1, 1, 1),
+        )
+
+        assertEquals(
+            1.0 / 1.5,
+            score(index, packOf(gold), setOf("Rule.visit")).callerRecall,
+            "the pack holds the declaration to change but nothing that calls it",
+        )
+        assertEquals(1.0, score(index, packOf(gold, caller), setOf("Rule.visit")).callerRecall)
+    }
+
+    @Test
+    fun `discounts gold that landed deep in the pack`() {
+        val gold = symbol("Rule.visit", 5, 10)
+        val filler = (1..4).map { symbol("Other.f$it", it * 30, it * 30 + 2) }
+        val index = indexOf(gold, *filler.toTypedArray())
+
+        val first = score(index, packOf(gold, *filler.toTypedArray()), setOf("Rule.visit")).ndcg
+        val last = score(index, packOf(*filler.toTypedArray(), gold), setOf("Rule.visit")).ndcg
+
+        assertEquals(1.0, first, "gold at the top of the pack is the ideal ordering")
+        assertTrue(last < first, "recall cannot tell these apart; a model reading top-down can")
     }
 
     private companion object {
