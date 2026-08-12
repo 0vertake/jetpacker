@@ -108,56 +108,86 @@ class AnalysisApiIndexer(
             .sortedBy { it.virtualFilePath }
     }
 
-    private val cached: CodeIndex by lazy { build() }
+    private val cached: CodeIndex by lazy { build(null) }
 
     override fun index(): CodeIndex = cached
 
-    private fun build(): CodeIndex {
+    /**
+     * Indexes only [only] (repository-relative paths), resolving them against every source root.
+     *
+     * Resolution is 93% of the cost of an index — 43 seconds of 46 on detekt — and most of a
+     * repository does not change between two commits, so re-analyzing only what did is what makes
+     * indexing a second commit cheap. The whole module still enters the session: a file cannot be
+     * resolved without the declarations it references.
+     *
+     * [CodeIndex.coverage] then describes the analyzed files alone, not the repository.
+     */
+    fun index(only: Set<String>): CodeIndex = build(only)
+
+    private fun build(only: Set<String>?): CodeIndex {
         val symbols = mutableListOf<Symbol>()
         val edges = mutableSetOf<Edge>()
         var callSites = 0
         var resolvedCallees = 0
         var attributedToCaller = 0
+        var failedFiles = 0
 
         for (file in files) {
             val absolute = Path.of(file.virtualFilePath)
             val path = relativePath(absolute)
+            if (only != null && path !in only) continue
             val isTest = testRoots.any(absolute::startsWith)
             val declarations = file.collectDescendantsOfType<KtDeclaration> { it.isIndexable() }
 
-            analyze(file) {
-                // Two passes: PSI traversal is post-order, so a member is visited before the class
-                // that contains it and no single pass can look its parent up.
-                val identified = declarations.mapNotNull { declaration ->
-                    val symbol = declaration.symbol
-                    symbolId(symbol)?.let { Identified(declaration, symbol, it) }
-                }
-                val idOf = identified.associate { it.declaration to it.id }
+            // The Analysis API is experimental and throws rather than returning null on constructs
+            // it cannot resolve: one dataframe DSL call takes it through a branch of overload
+            // resolution it asserts is impossible, and used to cost the repository its whole index.
+            // A call that throws is therefore treated as a call that did not resolve, and a file
+            // that throws anywhere else is counted and skipped so the other few thousand survive.
+            val analyzed = runCatching {
+                analyze(file) {
+                    // Two passes: PSI traversal is post-order, so a member is visited before the
+                    // class that contains it and no single pass can look its parent up.
+                    val identified = declarations.mapNotNull { declaration ->
+                        val symbol = declaration.symbol
+                        symbolId(symbol)?.let { Identified(declaration, symbol, it) }
+                    }
+                    val idOf = identified.associate { it.declaration to it.id }
 
-                for ((declaration, symbol, id) in identified) {
-                    symbols += toSymbol(declaration, symbol, id, path, isTest)
-                    edges += structuralEdges(declaration, symbol, id, idOf)
-                }
+                    val found = mutableListOf<Symbol>()
+                    val related = mutableListOf<Edge>()
+                    for ((declaration, symbol, id) in identified) {
+                        found += toSymbol(declaration, symbol, id, path, isTest)
+                        related += structuralEdges(declaration, symbol, id, idOf)
+                    }
 
-                for (call in file.collectDescendantsOfType<KtCallExpression>()) {
-                    callSites++
-                    val callee = call.resolveToCall()
-                        ?.successfulFunctionCallOrNull()
-                        ?.symbol
-                        ?.let { symbolId(it) }
-                        ?: continue
-                    resolvedCallees++
-                    val caller = enclosingDeclarationId(call, idOf) ?: continue
-                    attributedToCaller++
-                    edges += Edge(caller, callee, EdgeKind.CALLS)
+                    for (call in file.collectDescendantsOfType<KtCallExpression>()) {
+                        callSites++
+                        val callee = runCatching {
+                            call.resolveToCall()?.successfulFunctionCallOrNull()?.symbol?.let { symbolId(it) }
+                        }.getOrNull() ?: continue
+                        resolvedCallees++
+                        val caller = enclosingDeclarationId(call, idOf) ?: continue
+                        attributedToCaller++
+                        related += Edge(caller, callee, EdgeKind.CALLS)
+                    }
+                    found to related
                 }
-            }
+            }.getOrElse {
+                failedFiles++
+                null
+            } ?: continue
+
+            symbols += analyzed.first
+            edges += analyzed.second
         }
 
         return CodeIndex(
-            symbols = symbols.sortedBy { it.id },
+            // Not by id alone: a file-private `const val MAX` in two test files carries the same
+            // id, and which of the two came first then depended on the order they were analyzed in.
+            symbols = symbols.sortedWith(compareBy({ it.id }, { it.file }, { it.startLine })),
             edges = edges.sortedWith(compareBy({ it.kind }, { it.from }, { it.to })),
-            coverage = ResolutionCoverage(callSites, resolvedCallees, attributedToCaller),
+            coverage = ResolutionCoverage(callSites, resolvedCallees, attributedToCaller, failedFiles),
         )
     }
 
