@@ -63,6 +63,9 @@ class Ranker(
     private val nodeCount = ids.size + fileNode.size
     private val links: List<List<Link>> = buildAdjacency()
 
+    /** Fixed for the life of the graph, so the walk should not re-add it on every iteration. */
+    private val outWeight: DoubleArray = DoubleArray(nodeCount) { at -> links[at].sumOf { it.weight } }
+
     /** [reason] is fixed once the link exists, since both of its endpoints are. */
     private class Link(val target: Int, val weight: Double, val reason: String)
 
@@ -99,15 +102,14 @@ class Ranker(
             for (from in scores.indices) {
                 val mass = scores[from]
                 if (mass == 0.0) continue
-                val outgoing = links[from]
-                val total = outgoing.sumOf { it.weight }
+                val total = outWeight[from]
                 // A symbol with no outgoing weight would otherwise swallow its mass; hand it back
                 // to the seeds so the walk stays a distribution.
                 if (total == 0.0) {
                     leaked += mass
                     continue
                 }
-                for (link in outgoing) next[link.target] += DAMPING * mass * link.weight / total
+                for (link in links[from]) next[link.target] += DAMPING * mass * link.weight / total
             }
             for (at in next.indices) next[at] += (1 - DAMPING + DAMPING * leaked) * restart[at]
 

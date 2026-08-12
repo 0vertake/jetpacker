@@ -21,7 +21,7 @@ benchmark design, milestones, and kill-tests.
 ## Modules
 
 - `core/` — indexer, seed finder, graph expander, ranker, packer, renderer
-- `cli/` — `packer pack` command-line interface
+- `cli/` — `packer pack` command-line interface, and `packer serve`, the MCP server
 - `baselines/` — chunk-RAG, BM25, tree-sitter/Aider-style packs for the benchmark
 - `eval/` — benchmark harness, gold-symbol extraction from patches, metrics
 
@@ -45,8 +45,11 @@ and its dependency set is not self-describing:
   unpublished internal coordinates. Every runtime dep is therefore listed by hand, mirroring
   `google/ksp`'s `kotlin-analysis-api/build.gradle.kts` (the canonical production consumer).
 - Coroutines must be `org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core-jvm`
-  (patched); vanilla coroutines lacks `kotlinx.coroutines.internal.intellij.IntellijCoroutines`
-  and fails only at runtime.
+ (patched); vanilla coroutines lacks `kotlinx.coroutines.internal.intellij.IntellijCoroutines`
+ and fails only at runtime. The fork is also built without interface `DefaultImpls`, so a
+ library compiled against vanilla coroutines cannot share a JVM with it — it dies on calls
+ like `SendChannel.close$default`. That is why `packer serve` speaks JSON-RPC by hand
+ instead of using the Kotlin MCP SDK; adding that SDK back will not work.
 - Missing deps surface as `NoClassDefFoundError` during a test run, never at compile time.
   Read the class name out of `core/build/test-results/` and add the artifact.
 

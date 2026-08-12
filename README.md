@@ -28,29 +28,46 @@ for the full research and build plan.
 
 ## Status
 
-The pipeline runs end to end and the Level-1 benchmark is wired up. On 47 tasks
-mined from detekt's history, recall of the declarations each commit changed:
+The pipeline runs end to end and the Level-1 benchmark is wired up. On the 28
+detekt tasks of JetBrains' [Kotlin Benchmark](https://github.com/Kotlin/kotlin-swe-bench),
+scored from the issue text alone, recall of the declarations each fix changed:
 
 | | 1k | 2k | 4k | 8k |
 |---|----|----|----|----|
-| Jetpacker | **51.2%** | **59.1%** | **66.8%** | **73.4%** |
-| BM25 over declarations | 46.5% | 54.2% | 61.7% | 67.2% |
-| Chunk RAG (40-line windows) | 20.1% | 23.5% | 28.4% | 32.7% |
-| Aider-style repo map | 3.2% | 3.2% | 11.8% | 19.0% |
-| Same seeds, no graph expansion | 23.9% | 42.7% | 56.4% | 61.3% |
+| Jetpacker | 42.8% | 53.5% | **70.8%** | **81.2%** |
+| BM25 over declarations | **48.8%** | **55.7%** | 63.9% | 70.5% |
+| Chunk RAG (40-line windows) | 11.4% | 22.4% | 26.5% | 37.3% |
+| Aider-style repo map | 0.7% | 0.7% | 1.4% | 1.4% |
+| Same seeds, no graph expansion | 29.9% | 44.6% | 57.7% | 66.5% |
 
 Retrieving whole declarations instead of windows is worth more than any ranking
-change, and structural expansion is worth 10–27 points over the seeds alone.
-Read [`docs/results.md`](docs/results.md) before quoting any of this: two
-repositories carry the whole result, one of them disagrees at 1k, and Level 2
-(does a better pack produce a better patch?) is not measured yet.
+change, and structural expansion is worth 10–23 points over the seeds alone. The
+same ordering holds on ktlint's 43 tasks and ort's 12 — where the margin is
+widest, more than double BM25 at 4k — and on 60 tasks mined from detekt's commit
+history. Removing one relation at a time says the callers of a declaration are
+what earns that — worth up to 13.6 points — while implementations and supertypes,
+which the design expected to be the wedge, pay in one column out of six.
+
+**Resolution itself is worth 1 to 17.8 points**, and the margin grows with the
+budget. The same engine over call edges rebuilt from bare names — what a parser
+can produce without a compiler — loses in all twelve repository-and-budget
+columns, and on detekt at 8k it does worse than not expanding the graph at all.
+Following an ambiguous edge is not a weaker version of following a resolved one.
+
+It does not hold everywhere: on TeXiFy, an IDE plugin whose issues describe what
+a LaTeX user saw rather than any code, the engine loses to BM25 at every budget
+and to its own no-expansion ablation. Read
+[`docs/results.md`](docs/results.md) before quoting any of this: 97 of the
+suite's 105 tasks run, keyword search still wins below 2k on the smaller
+repositories, and Level 2 (does a better pack produce a better patch?) is not
+measured yet.
 
 ## Layout
 
 | Module | Purpose |
 |---|---|
 | `core/` | index, seed, expand, rank, pack, render |
-| `cli/` | `packer pack --repo . --task task.md --budget 4000` |
+| `cli/` | `packer pack`, and `packer serve` for the MCP surface |
 | `baselines/` | chunk-RAG / BM25 / tree-sitter baselines |
 | `eval/` | benchmark harness and metrics |
 
@@ -60,4 +77,25 @@ Requires JDK 21.
 
 ```sh
 ./gradlew build
+```
+
+## Use
+
+```sh
+./gradlew :cli:installDist
+cli/build/install/cli/bin/cli pack --repo /path/to/project --task task.md --budget 4000
+```
+
+Or as an MCP server over stdio, which indexes the repository once at startup and
+then answers `get_context_pack(task, budget)` per request:
+
+```json
+{
+  "mcpServers": {
+    "jetpacker": {
+      "command": "/path/to/jetpacker/cli/build/install/cli/bin/cli",
+      "args": ["serve", "--repo", "/path/to/project"]
+    }
+  }
+}
 ```
