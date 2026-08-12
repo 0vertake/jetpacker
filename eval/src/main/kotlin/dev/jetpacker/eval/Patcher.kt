@@ -43,10 +43,14 @@ class CursorPatcher(private val python: Path, private val script: Path, private 
             return ""
         }
 
-        // A backend that never started — no key, no SDK, wrong interpreter — must not read as a model
-        // with nothing to say: every arm scores zero and the table looks plausible.
-        if (process.exitValue() == UNUSABLE) {
-            error("the patcher could not run: ${complaints.readText().trim().ifEmpty { "no reason given" }}")
+        if (process.exitValue() != 0) {
+            val reason = complaints.readText().trim().ifEmpty { "no reason given" }
+            // A backend that never started — no key, no SDK, wrong interpreter — must not read as a
+            // model with nothing to say: every arm scores zero and the table looks plausible.
+            if (process.exitValue() == UNUSABLE) error("the patcher could not run: $reason")
+            // A refusal, a rate limit or a dropped run is per-call, but it has to leave a reason
+            // behind or a night of them looks like retrieval that taught the model nothing.
+            println("    no answer: ${reason.lines().last()}")
         }
         return diffIn(reply)
     }
