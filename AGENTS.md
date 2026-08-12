@@ -31,7 +31,10 @@ benchmark design, milestones, and kill-tests.
 - Tests only: `./gradlew test`
 - One module: `./gradlew :core:test`
 - Resolve a real repository (opt-in, needs network, minutes):
-  `./gradlew :core:test -Djetpacker.repo=/path/to/repo --tests '*RealRepository*'`
+ `./gradlew :core:test -Djetpacker.repo=/path/to/repo --tests '*RealRepository*'`
+- Run the embedding baseline (opt-in, downloads a 90MB model): add `-Pjetpacker.embed=true`
+ to `:eval:run`, or `-Djetpacker.embed=true` to `:baselines:test`. Off by default because it
+ roughly doubles a benchmark run.
 
 ## Analysis API dependency wiring (hard-won; don't "simplify" it)
 

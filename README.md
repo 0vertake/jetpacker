@@ -36,12 +36,15 @@ scored from the issue text alone, recall of the declarations each fix changed:
 |---|----|----|----|----|
 | Jetpacker | 42.8% | 53.5% | **70.8%** | **81.2%** |
 | BM25 over declarations | **48.8%** | **55.7%** | 63.9% | 70.5% |
-| Chunk RAG (40-line windows) | 11.4% | 22.4% | 26.5% | 37.3% |
+| Chunk RAG (40-line windows, BM25) | 15.3% | 32.5% | 34.1% | 48.1% |
+| Chunk RAG, same windows, embeddings | 3.1% | 10.4% | 14.0% | 14.9% |
 | Aider-style repo map | 0.7% | 0.7% | 1.4% | 1.4% |
 | Same seeds, no graph expansion | 29.9% | 44.6% | 57.7% | 66.5% |
 
 Retrieving whole declarations instead of windows is worth more than any ranking
-change, and structural expansion is worth 10–23 points over the seeds alone. The
+change — swapping BM25 for a local `all-MiniLM-L6-v2` over the *same* windows
+costs 20 points rather than closing the gap — and structural expansion is worth
+10–23 points over the seeds alone. The
 same ordering holds on ktlint's 43 tasks and ort's 12 — where the margin is
 widest, more than double BM25 at 4k — and on 60 tasks mined from detekt's commit
 history. Removing one relation at a time says the callers of a declaration are
@@ -68,7 +71,7 @@ measured yet.
 |---|---|
 | `core/` | index, seed, expand, rank, pack, render |
 | `cli/` | `packer pack`, and `packer serve` for the MCP surface |
-| `baselines/` | chunk-RAG / BM25 / tree-sitter baselines |
+| `baselines/` | chunk-RAG (BM25 and embedding) / BM25 / tree-sitter baselines |
 | `eval/` | benchmark harness and metrics |
 
 ## Build

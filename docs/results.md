@@ -46,6 +46,7 @@ only thing that varies is which declarations get chosen and in what order.
 | `bm25:full.00` | BM25 over whole declarations, signatures only |
 | `bm25:full.30` | BM25 over whole declarations, 30% of the budget on bodies |
 | `chunk-bm25` | chunk RAG: fixed 40-line windows ranked by BM25 |
+| `chunk-embed` | the same windows ranked by `all-MiniLM-L6-v2` embeddings, run locally |
 | `repo-map` | Aider's repo map, ported from `repomap.py` |
 | `file-dump` | whole top-ranked files until the budget runs out |
 
@@ -61,7 +62,8 @@ All 28 detekt tasks in the suite, base commits spanning 2021 to 2025. Recall@bud
 | `seeds-only` | 29.9% | 44.6% | 57.7% | 66.5% |
 | `bm25:full.00` | **48.8%** | 55.7% | 63.9% | 70.5% |
 | `bm25:full.30` | 39.3% | 51.8% | 36.2% | 20.7% |
-| `chunk-bm25` | 11.4% | 22.4% | 26.5% | 37.3% |
+| `chunk-bm25` | 15.3% | 32.5% | 34.1% | 48.1% |
+| `chunk-embed` | 3.1% | 10.4% | 14.0% | 14.9% |
 | `repo-map` | 0.7% | 0.7% | 1.4% | 1.4% |
 | `file-dump` | 18.7% | 10.3% | 7.7% | 4.1% |
 
@@ -74,6 +76,15 @@ keyword matching is closer to reading the answer off the task.
 **Below 2k, matching the words still wins.** BM25 leads by 4.9 points at 1k. With room for a few
 dozen signatures, being right about the first handful beats expanding around them, and the engine's
 advantage only appears once the budget can hold a neighbourhood. Same shape as on Exposed.
+
+**Embedding the same windows makes them worse, not better.** `chunk-embed` and `chunk-bm25` differ
+in one thing — cosine similarity against a sentence-transformer instead of keyword scoring — and
+the dense ranking costs 20.1 points at 4k. It is not that the model cannot see the right code: on
+task 4205 the gold file's best window ranks 42nd of 2275, inside the top 2%, and 4k holds about ten
+windows. A general-purpose embedding spreads its confidence across everything topically alike, and
+in a linter every rule and every rule spec is topically alike, while BM25 keys on the rare
+identifiers an issue quotes verbatim. This is the arm that answers "your chunk baseline lost
+because BM25 is not real RAG"; on this corpus, real RAG does worse.
 
 **One test-seeding result flips.** `jp:seed-tests` — test declarations allowed to seed on their own
 names — costs 12.8 points at 8k on mined commits but beats the shipped default here at 2k, 4k and
@@ -226,7 +237,8 @@ and **nDCG** over the pack's own order. At 4k:
 | `bm25:full.00` | 63.9% | 64.7% | 0.294 | 31.5% | 28.8% | 0.146 |
 | `names-only` | 59.7% | 58.8% | 0.240 | 34.8% | 32.9% | 0.122 |
 | `seeds-only` | 57.7% | 58.6% | 0.232 | 25.4% | 23.7% | 0.113 |
-| `chunk-bm25` | 26.5% | 26.5% | 0.137 | 3.4% | 3.1% | 0.034 |
+| `chunk-bm25` | 34.1% | 34.0% | 0.176 | 3.4% | 3.1% | 0.034 |
+| `chunk-embed` | 14.0% | 12.5% | 0.081 | — | — | — |
 
 **Half credit for callers changes nothing.** Every arm moves by a point or two and no ordering
 changes. It does show a small difference between the repositories: on detekt the packs tend to hold
@@ -444,9 +456,18 @@ Read these before quoting any number above.
   shipped default still spends 15% of the budget on whole bodies even though `jp:all-stubs` scores
   0.8 to 7.9 points higher without them. That is a judgement about what an agent needs, not a
   result — the metric says signatures only.
-- **The chunk baseline ranks with BM25, not embeddings.** The plan asks for a local embedding
-  model. On code of this size the reports it cites put BM25 at or above one, and the gap here is
-  large enough that the substitution is unlikely to decide it — but it is a substitution.
+- **The embedding baseline has run on detekt only.** `chunk-embed` costs about half an hour a
+  repository, so the other five tables have no dense arm yet. One repository is enough to answer
+  the objection and not enough to generalise: a corpus where topical similarity is more
+  discriminating than a linter's is exactly where the result could go the other way.
+- **The embedding baseline uses one general-purpose model.** `all-MiniLM-L6-v2` is what most RAG
+  stacks reach for, not what a team optimising for code retrieval would pick. A code-trained
+  embedding is the obvious next arm, and the honest reading of `chunk-embed` today is "the default
+  choice does badly here", not "dense retrieval does badly here".
+- **Chunk arms rank on the window plus its file path**, which is what chunking pipelines index and
+  what the engine already had through `fqName`. It is worth 7.6 points to `chunk-bm25` at 4k on
+  detekt. The tables for the other five repositories, and both mined-commit tables, were measured
+  before that change and understate their chunk arm; they are re-run as a block, not patched.
 - **The repo map is being used as something it is not.** Aider builds a whole-repo overview,
   personalized by the files already in the chat. Scored as a task retriever with no chat files, it
   ranks by global importance instead of task relevance. Its low score is a statement about that
@@ -476,7 +497,8 @@ git clone https://github.com/detekt/detekt /tmp/detekt
 git clone --depth 1 https://github.com/Kotlin/kotlin-swe-bench /tmp/kotlin-swe-bench
 ./gradlew :eval:run -Pjetpacker.repo=/tmp/detekt \
   -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=detekt \
-  -Pjetpacker.tasks=28 -Pjetpacker.budgets=1000,2000,4000,8000
+  -Pjetpacker.tasks=28 -Pjetpacker.budgets=1000,2000,4000,8000 \
+  -Pjetpacker.embed=true   # adds chunk-embed; downloads a 90MB model, roughly doubles the run
 
 # ktlint, whose build model has to be read at a commit a JDK 21 toolchain can configure.
 git clone https://github.com/pinterest/ktlint /tmp/ktlint
