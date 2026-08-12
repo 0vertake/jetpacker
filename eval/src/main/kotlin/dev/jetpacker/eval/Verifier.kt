@@ -48,9 +48,20 @@ class Verifier(private val task: Path, private val workspace: Path) {
 
         // `git apply` failing is not a test failure, and must not be scored as one: a model that
         // returns prose instead of a diff has to be visible as exactly that.
+        //
+        // It gets three attempts, because a pack names a declaration's file and first line but not
+        // the line numbers inside it, so hunk headers are a model's arithmetic rather than something
+        // it can read off. Strict apply first, then a 3-way merge, then a recount that rebuilds the
+        // hunk line counts from the file itself. Every arm gets the same three, so a fix that was
+        // right about the code and wrong about the offsets is not scored as a failed fix.
         val script = buildString {
             append("set -e; cd $checkout; ")
-            if (patch.isNotBlank()) append("git apply --whitespace=nowarn /patch/agent.diff || exit 66; ")
+            if (patch.isNotBlank()) {
+                append("git apply --whitespace=nowarn /patch/agent.diff ")
+                append("|| git apply --3way --whitespace=nowarn /patch/agent.diff ")
+                append("|| git apply --recount -C1 --ignore-whitespace --whitespace=nowarn /patch/agent.diff ")
+                append("|| exit 66; ")
+            }
             append("bash /tests/test.sh")
         }
 
