@@ -58,6 +58,7 @@ fun main() {
         .map { (task, arm) -> task to arm }.toSet()
 
     val indexes = Indexes(repo, cache)
+    var silent = 0
 
     for (task in tasks) {
         val snapshot = runCatching { indexes.at(task.baseCommit) }.getOrElse {
@@ -84,12 +85,21 @@ fun main() {
 
             results.appendText("${task.id}\t$name\t$outcome\t${pack?.tokens ?: 0}\n")
             println("  [${task.id}] $name -> $outcome (${started.elapsedNow().inWholeSeconds.seconds})")
+
+            // A model that answers nothing for a whole task's worth of arms is rate-limited, out of
+            // credit or refusing, and the run is no longer measuring retrieval. Stop rather than
+            // spend the night collecting zeros that a reader would take for a result.
+            silent = if (outcome == Outcome.NO_ANSWER) silent + 1 else 0
+            if (silent >= SILENT_LIMIT) error("$SILENT_LIMIT calls in a row answered nothing; see the reasons above")
         }
     }
 
     report(results)
     exitProcess(0)
 }
+
+/** One task's worth of arms: enough silence to mean the backend, not the packs. */
+private const val SILENT_LIMIT = 4
 
 /**
  * The comparison. `none` is the floor — what the model does from the issue alone — and without it a
