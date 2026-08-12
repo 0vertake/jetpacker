@@ -9,6 +9,10 @@ import kotlin.system.exitProcess
 
 private const val USAGE = """
 Usage: packer pack --repo <dir> --task <file|-> [--budget 4000]
+       packer serve --repo <dir>
+
+  pack   print one pack and exit
+  serve  an MCP server on stdio, exposing get_context_pack(task, budget)
 
   --repo    a Gradle project to index
   --task    task description; - reads stdin
@@ -16,17 +20,24 @@ Usage: packer pack --repo <dir> --task <file|-> [--budget 4000]
 """
 
 /**
- * Deliberately hand-rolled argument parsing: one subcommand with three flags does not justify a
+ * Deliberately hand-rolled argument parsing: two subcommands with three flags do not justify a
  * CLI framework, and the eval harness calls [Jetpacker] directly rather than going through here.
  */
 fun main(args: Array<String>) {
-    if (args.firstOrNull() != "pack") fail(USAGE.trim())
+    val command = args.firstOrNull()
+    if (command != "pack" && command != "serve") fail(USAGE.trim())
 
     val flags = args.drop(1).chunked(2)
         .onEach { if (it.size != 2) fail("missing value for ${it.first()}\n\n${USAGE.trim()}") }
         .associate { (flag, value) -> flag to value }
 
     val repo = Path.of(flags["--repo"] ?: fail("--repo is required\n\n${USAGE.trim()}"))
+
+    if (command == "serve") {
+        serve(repo)
+        exitProcess(0)
+    }
+
     val task = flags["--task"] ?: fail("--task is required\n\n${USAGE.trim()}")
     val budget = flags["--budget"]?.toIntOrNull() ?: Retriever.DEFAULT_BUDGET
 

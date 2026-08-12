@@ -67,7 +67,7 @@ measured yet.
 | Module | Purpose |
 |---|---|
 | `core/` | index, seed, expand, rank, pack, render |
-| `cli/` | `packer pack --repo . --task task.md --budget 4000` |
+| `cli/` | `packer pack`, and `packer serve` for the MCP surface |
 | `baselines/` | chunk-RAG / BM25 / tree-sitter baselines |
 | `eval/` | benchmark harness and metrics |
 
@@ -77,4 +77,25 @@ Requires JDK 21.
 
 ```sh
 ./gradlew build
+```
+
+## Use
+
+```sh
+./gradlew :cli:installDist
+cli/build/install/cli/bin/cli pack --repo /path/to/project --task task.md --budget 4000
+```
+
+Or as an MCP server over stdio, which indexes the repository once at startup and
+then answers `get_context_pack(task, budget)` per request:
+
+```json
+{
+  "mcpServers": {
+    "jetpacker": {
+      "command": "/path/to/jetpacker/cli/build/install/cli/bin/cli",
+      "args": ["serve", "--repo", "/path/to/project"]
+    }
+  }
+}
 ```
