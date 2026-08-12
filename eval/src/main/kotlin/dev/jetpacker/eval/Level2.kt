@@ -31,6 +31,11 @@ import kotlin.time.TimeSource
  * Every arm spends its whole budget on bodies. At Level 1 a signature is enough to say retrieval
  * found the right declaration; here the model has to edit the thing, and no one can edit a
  * signature. That makes this a different question from the Level-1 tables, not a rerun of them.
+ *
+ * It also means no arm here is the shipped default, which gives bodies 15% of the budget because
+ * that is what maximized recall (`Packer.DEFAULT_FULL_TIER_SHARE`). Whether recall-optimal packing
+ * is also patch-optimal is a real question and this sample cannot answer it: nine tasks cannot
+ * separate one arm from another. Any writeup of these numbers has to say which configuration ran.
  */
 fun main() {
     val repo = Path.of(System.getProperty("jetpacker.repo") ?: error("set -Djetpacker.repo=<path>"))
