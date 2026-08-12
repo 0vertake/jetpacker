@@ -7,7 +7,6 @@ import dev.jetpacker.baselines.RepoMapRetriever
 import dev.jetpacker.baselines.nameMatchedIndex
 import dev.jetpacker.core.Jetpacker
 import dev.jetpacker.core.Retriever
-import dev.jetpacker.core.index.CodeIndex
 import dev.jetpacker.core.rank.EdgeWeights
 import dev.jetpacker.core.seed.SeedFinder
 import java.nio.file.Path
@@ -118,27 +117,18 @@ private fun retrievers(snapshot: Snapshot): List<Retriever> = listOf(
     engine(snapshot, "default", fullTierShare = 0.15),
     engine(snapshot, "all-stubs"),
     engine(snapshot, "seed-tests", fullTierShare = 0.15, testPenalty = 1.0),
-    // Resolution off: the same engine over call edges a parser could have produced (§5).
+    // Resolution off: the same engine over call edges a parser could have produced (§5). Built per
+    // task and not cached: every task is a different checkout, so a cache across them only holds
+    // dead indexes — each one millions of ambiguous edges — until the run is thrashing the GC.
     Jetpacker(
         snapshot.root,
-        nameMatched(snapshot),
+        nameMatchedIndex(snapshot.index, snapshot.root),
         EdgeWeights(),
         "names-only",
         fullTierShare = 0.15,
         testShare = 0.1,
     ),
 ) + edgeAblations(snapshot)
-
-/**
- * The name-matched view of a checkout, built once rather than once per task.
- *
- * Rebuilding it costs a pass over every source file, and the harness asks for its retrievers again
- * for every task in the repository.
- */
-private val nameMatchedIndexes = HashMap<Path, CodeIndex>()
-
-private fun nameMatched(snapshot: Snapshot): CodeIndex =
-    nameMatchedIndexes.getOrPut(snapshot.root) { nameMatchedIndex(snapshot.index, snapshot.root) }
 
 /**
  * One relation removed at a time, against `jp:default` (docs/plan.md §5).
@@ -185,14 +175,16 @@ private fun report(results: Map<String, List<Score>>, skipped: Int) {
     }
     val scored = results.values.first().size
     println("\n$scored tasks scored, $skipped skipped\n")
-    println("| retriever      | recall@budget | precision | file recall | tokens |")
-    println("|----------------|---------------|-----------|-------------|--------|")
+    println("| retriever      | recall@budget | +callers | nDCG  | precision | file recall | tokens |")
+    println("|----------------|---------------|----------|-------|-----------|-------------|--------|")
     for ((name, scores) in results.entries.sortedBy { it.key }) {
         val mean = scores.mean()
         println(
-            "| %-14s | %13s | %9s | %11s | %6d |".format(
+            "| %-14s | %13s | %8s | %5.3f | %9s | %11s | %6d |".format(
                 name,
                 percent(mean.recall),
+                percent(mean.callerRecall),
+                mean.ndcg,
                 percent(mean.precision),
                 percent(mean.fileRecall),
                 mean.tokens,
