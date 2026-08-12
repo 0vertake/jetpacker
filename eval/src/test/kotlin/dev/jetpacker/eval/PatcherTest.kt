@@ -1,7 +1,11 @@
 package dev.jetpacker.eval
 
+import java.nio.file.Path
+import kotlin.io.path.createTempFile
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -47,7 +51,31 @@ class PatcherTest {
         assertTrue(read(DIFF.trimEnd()).endsWith("\n"))
     }
 
+    @Test
+    fun `passes a reply back through the helper process`() {
+        val patcher = CursorPatcher(Path.of("/usr/bin/python3"), helper("print('''```diff\n$DIFF\n```''')"))
+
+        assertEquals(DIFF + "\n", patcher.patch("fix it", pack = null))
+    }
+
+    @Test
+    fun `refuses to score an arm whose backend never ran`() {
+        val patcher = CursorPatcher(
+            Path.of("/usr/bin/python3"),
+            helper("import sys\nprint('no key', file=sys.stderr)\nsys.exit(1)"),
+        )
+
+        val failure = assertFailsWith<IllegalStateException> { patcher.patch("fix it", pack = null) }
+
+        assertTrue("no key" in failure.message!!, "the reason has to reach the operator, got ${failure.message}")
+    }
+
     private fun read(reply: String) = diffIn(reply)
+
+    /** A backend that answers however the test needs, without a model or a key behind it. */
+    private fun helper(body: String) = createTempFile("helper", ".py").also {
+        it.writeText("import sys\nsys.stdin.read()\n$body\n")
+    }
 
     private companion object {
         val DIFF = """
