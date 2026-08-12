@@ -48,7 +48,10 @@ fun main() {
     val tasks = harborTasks(harbor, repository).filter { it.id in certified }.take(wanted)
     println("${tasks.size} certified tasks for $repository at $budget tokens")
 
-    val patcher = CursorPatcher(python(workspace), cursorScript())
+    // `jetpacker.patcher` swaps the helper script, for a different backend or for a stub that
+    // exercises the loop without spending a model call.
+    val script = System.getProperty("jetpacker.patcher")?.let { Path.of(it) } ?: cursorScript()
+    val patcher = CursorPatcher(python(workspace), script)
     val results = workspace.resolve("level2.tsv")
     if (!results.exists()) results.writeText("")
     val done = results.readLines().mapNotNull { it.split("\t").take(2).takeIf { row -> row.size == 2 } }
@@ -72,8 +75,12 @@ fun main() {
             val started = TimeSource.Monotonic.markNow()
 
             val pack = retriever?.pack(task.text, budget)
-            val patch = patcher.patch(task.text, pack?.toMarkdown())
-            val outcome = if (patch.isBlank()) Outcome.NOT_APPLIED else verifier.verify(patch, name.replace(':', '-'))
+            val context = pack?.toMarkdown()
+            // The prompt is a constant in source; the context is the whole experiment. Keep it beside
+            // the verifier's logs so any resolved-count in the table can be read back to what caused it.
+            context?.let { workspace.resolve(task.id).resolve("$name.context.md").writeText(it) }
+            val patch = patcher.patch(task.text, context)
+            val outcome = if (patch.isBlank()) Outcome.NO_ANSWER else verifier.verify(patch, name.replace(':', '-'))
 
             results.appendText("${task.id}\t$name\t$outcome\t${pack?.tokens ?: 0}\n")
             println("  [${task.id}] $name -> $outcome (${started.elapsedNow().inWholeSeconds.seconds})")
@@ -118,15 +125,15 @@ private fun report(results: Path) {
         return
     }
 
-    println("\n| arm | resolved | no patch | no verdict | tokens |")
-    println("|-----|----------|----------|------------|--------|")
+    println("\n| arm | resolved | no answer | not applied | no verdict | tokens |")
+    println("|-----|----------|-----------|-------------|------------|--------|")
     for ((arm, scored) in rows.groupBy { it[1] }.entries.sortedBy { it.key }) {
-        val resolved = scored.count { it[2] == "${Outcome.RESOLVED}" }
         println(
-            "| %-4s | %3d/%-3d | %8d | %10d | %6d |".format(
+            "| %-4s | %3d/%-3d | %9d | %11d | %10d | %6d |".format(
                 arm,
-                resolved,
+                scored.count { it[2] == "${Outcome.RESOLVED}" },
                 scored.size,
+                scored.count { it[2] == "${Outcome.NO_ANSWER}" },
                 scored.count { it[2] == "${Outcome.NOT_APPLIED}" },
                 scored.count { it[2] == "${Outcome.NO_VERDICT}" },
                 scored.mapNotNull { it[3].toIntOrNull() }.average().toInt(),

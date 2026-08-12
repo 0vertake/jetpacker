@@ -3,6 +3,7 @@ package dev.jetpacker.eval
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createTempFile
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 /** Turns a task and the context an arm retrieved for it into a patch, or into nothing. */
@@ -30,21 +31,30 @@ class OraclePatcher(private val fix: String) : Patcher {
  */
 class CursorPatcher(private val python: Path, private val script: Path, private val timeout: Long = 600) : Patcher {
     override fun patch(task: String, pack: String?): String {
-        val prompt = prompt(task, pack)
+        val complaints = createTempFile("cursor_patch", ".err")
         val process = ProcessBuilder(python.toString(), script.toString())
-            .redirectErrorStream(false)
+            .redirectError(complaints.toFile())
             .start()
 
-        process.outputStream.bufferedWriter().use { it.write(prompt) }
+        process.outputStream.bufferedWriter().use { it.write(prompt(task, pack)) }
         val reply = process.inputStream.bufferedReader().readText()
         if (!process.waitFor(timeout, TimeUnit.SECONDS)) {
             process.destroyForcibly()
             return ""
         }
+
+        // A backend that never started — no key, no SDK, wrong interpreter — must not read as a model
+        // with nothing to say: every arm scores zero and the table looks plausible.
+        if (process.exitValue() == UNUSABLE) {
+            error("the patcher could not run: ${complaints.readText().trim().ifEmpty { "no reason given" }}")
+        }
         return diffIn(reply)
     }
 
     private companion object {
+        /** `cursor_patch.py` exits with this when it never reached the model at all. */
+        const val UNUSABLE = 1
+
         /**
          * Identical for every arm but the context block, which is the only thing being compared.
          * A missing block, rather than an empty one, is the no-context floor.
@@ -67,7 +77,6 @@ class CursorPatcher(private val python: Path, private val script: Path, private 
             appendLine("`diff --git a/<path> b/<path>` headers and correct @@ hunk lines.")
             appendLine("Do not create or edit any file on disk; the diff in your reply is the whole answer.")
         }
-
     }
 }
 
