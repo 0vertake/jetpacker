@@ -2,6 +2,8 @@ package dev.jetpacker.eval
 
 import dev.jetpacker.baselines.Bm25Retriever
 import dev.jetpacker.baselines.ChunkRetriever
+import dev.jetpacker.baselines.Embedder
+import dev.jetpacker.baselines.EmbeddingChunkRetriever
 import dev.jetpacker.baselines.FileDumpRetriever
 import dev.jetpacker.baselines.RepoMapRetriever
 import dev.jetpacker.baselines.nameMatchedIndex
@@ -32,6 +34,10 @@ fun main() {
     val source = if (harbor == null) "mined from" else "Kotlin Benchmark issues for"
     println("${tasks.size} tasks $source ${repo.fileName}, budgets ${budgets.joinToString(", ")}")
 
+    // Off unless asked for: the model is a download, and embedding every window of every checkout
+    // adds minutes to a run that is otherwise cheap enough to sit through.
+    val embedder = System.getProperty("jetpacker.embed")?.let { Embedder() }
+
     val indexes = Indexes(repo, cache)
     val results = budgets.associateWith { LinkedHashMap<String, MutableList<Score>>() }
     val diagnoses = mutableListOf<Diagnosis>()
@@ -54,7 +60,7 @@ fun main() {
         }
 
         val named = namesItsTarget(snapshot.index, task, gold)
-        for (retriever in retrievers(snapshot)) {
+        for (retriever in retrievers(snapshot, embedder)) {
             for (budget in budgets) {
                 val scored = score(snapshot.index, retriever.pack(task.text, budget), gold)
                 results.getValue(budget).getOrPut(retriever.name) { mutableListOf() } += scored
@@ -75,6 +81,7 @@ fun main() {
     println("\n--- at $headline tokens, tasks whose text names none of them (the case structure is for)")
     report(unnamedSlice, 0)
     reportDiagnostics(diagnoses)
+    embedder?.close()
     exitProcess(0)
 }
 
@@ -102,11 +109,13 @@ private const val CANDIDATES = 400
  * Everything scored on each task. Same budget, same packer, same token accounting — the only
  * thing that varies is how candidates are chosen and ordered.
  */
-private fun retrievers(snapshot: Snapshot): List<Retriever> = listOf(
+private fun retrievers(snapshot: Snapshot, embedder: Embedder?): List<Retriever> = listOfNotNull(
     // Baselines get the same fidelity policy as the engine config they are compared against;
     // leaving them on a body-heavy default would have flattered us by ten points.
     Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.00", fullTierShare = 0.00),
     ChunkRetriever(snapshot.index, snapshot.root),
+    // The same windows ranked by meaning instead of keywords — RAG as most people build it.
+    embedder?.let { EmbeddingChunkRetriever(snapshot.index, snapshot.root, it) },
     Bm25Retriever(snapshot.index, snapshot.root, "bm25:full.30", fullTierShare = 0.30),
     FileDumpRetriever(snapshot.index, snapshot.root),
     RepoMapRetriever(snapshot.index, snapshot.root),

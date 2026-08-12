@@ -28,6 +28,7 @@ tasks.named<JavaExec>("run") {
         "jetpacker.cache",
         "jetpacker.harbor",
         "jetpacker.harbor.repo",
+        "jetpacker.embed",
     ).forEach {
         providers.gradleProperty(it).orNull?.let { value -> systemProperty(it, value) }
     }
