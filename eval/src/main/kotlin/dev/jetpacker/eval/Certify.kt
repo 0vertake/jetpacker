@@ -55,9 +55,13 @@ fun main() {
 
         val started = TimeSource.Monotonic.markNow()
         val verifier = Verifier(task, workspace.resolve(id).also { it.createDirectories() })
+        // Deliberately not recorded, so the next run tries again. A build that fetches the whole
+        // dependency set of a 2021 commit fails for reasons that have nothing to do with the task —
+        // a dropped connection, a sleeping laptop — and writing those off permanently would shrink
+        // the sample silently. The cost is that a task whose build cannot work here, like one whose
+        // Android tests need a daemon the container has no way to start, is retried every run.
         if (!verifier.prepare()) {
             println("[$id] image build failed; see ${workspace.resolve(id).resolve("build.log")}")
-            record.appendText("$id\tNO_IMAGE\t-\n")
             continue
         }
 
