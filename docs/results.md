@@ -25,6 +25,11 @@ That is the number to read. Precision is reported for honesty but is close to me
 gold is one to three declarations and a 4k pack holds around a hundred, so a perfect retriever
 still scores about 2%.
 
+Two further metrics from plan §5 are reported by the harness and discussed
+[below](#do-the-other-metrics-say-anything-different): **+callers**, which gives the direct callers
+of gold half credit, and **nDCG**, which scores where in the pack the gold landed rather than only
+whether it is there.
+
 ## Retrievers
 
 All of them use the same packer, the same tokenizer, the same budget, and the same task text. The
@@ -206,6 +211,39 @@ dropped rather than kept as a tuning knob.
 Its single task in the suite runs. One task is a coin flip — every arm scores 0% or 100%, and at
 4k the shipped default scores 0% while `jp:seed-tests` and `repo-map` score 100%; by 8k the default
 finds it too. Reported as coverage, not as a result.
+
+## Do the other metrics say anything different?
+
+Recall@budget is indifferent to two things a reader might care about: whether the pack also holds
+the code that *calls* what needs changing, and whereabouts in the pack any of it landed. Plan §5
+asks for both, so the harness reports **+callers** (gold at full weight, its direct callers at half)
+and **nDCG** over the pack's own order. At 4k:
+
+| retriever | detekt recall | detekt +callers | detekt nDCG | ktlint recall | ktlint +callers | ktlint nDCG |
+|-----------|---------------|-----------------|-------------|---------------|-----------------|-------------|
+| `jp:all-stubs` | 78.7% | 79.4% | **0.342** | **41.9%** | **39.5%** | **0.152** |
+| `jp:default` | 70.8% | 72.2% | 0.313 | 38.5% | 35.9% | 0.139 |
+| `bm25:full.00` | 63.9% | 64.7% | 0.294 | 31.5% | 28.8% | 0.146 |
+| `names-only` | 59.7% | 58.8% | 0.240 | 34.8% | 32.9% | 0.122 |
+| `seeds-only` | 57.7% | 58.6% | 0.232 | 25.4% | 23.7% | 0.113 |
+| `chunk-bm25` | 26.5% | 26.5% | 0.137 | 3.4% | 3.1% | 0.034 |
+
+**Half credit for callers changes nothing.** Every arm moves by a point or two and no ordering
+changes. It does show a small difference between the repositories: on detekt the packs tend to hold
+callers of gold, so +callers sits *above* recall, and on ktlint they do not. Neither effect is large
+enough to build on.
+
+**nDCG is where the engine looks worst, and that is worth saying.** On ktlint `jp:default` beats
+BM25 on recall by 7 points and *loses* to it on nDCG, 0.139 against 0.146. BM25 ranks by direct
+text match, so on the tasks where it finds gold at all it tends to put it near the top of the pack;
+the engine finds gold on more tasks but places it deeper, behind whatever the graph ranked above it.
+Recall says the engine is 22% better here; a model that reads only the first part of its context
+would not experience it that way.
+
+That is a packer-ordering problem rather than a retrieval one — the pack renders bodies first, then
+signatures grouped by file, so a gold signature can land far down a long section — and it is a
+concrete thing to fix that the previous metrics could not see. It is left open rather than tuned
+away, because whether pack position matters at all is a Level-2 question.
 
 ## Is resolution worth it?
 
@@ -398,6 +436,9 @@ Read these before quoting any number above.
 - **The Kotlin Benchmark is used at Level 1 only.** Its Docker environments and test verifiers —
   the part that decides whether a patch actually resolves a task — are ignored here. Nothing in this
   document is a Kotlin Benchmark score.
+- **nDCG is computed over the pack, not over a ranking.** Baselines do not all expose an internal
+  ranking, so position is taken from the rendered order every arm actually hands a model. That
+  makes it a property of packing as much as of retrieval.
 - **Level 1 only.** Nothing here shows that a better pack produces a better patch. Recall of a
   declaration's *name* is not the same as giving a model what it needs to edit it, which is why the
   shipped default still spends 15% of the budget on whole bodies even though `jp:all-stubs` scores
