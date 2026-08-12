@@ -124,6 +124,9 @@ enum class Outcome {
     /** The patch did not apply. Never counted as a failed fix. */
     NOT_APPLIED,
 
+    /** The model replied without a diff in it, so there was nothing to apply. Not a verdict either. */
+    NO_ANSWER,
+
     /** No reward was written: timeout, crashed container, or no test report to read. */
     NO_VERDICT,
 }
