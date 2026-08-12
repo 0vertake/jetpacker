@@ -39,6 +39,12 @@ benchmark design, milestones, and kill-tests.
  `./gradlew :eval:certify -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=detekt`
  Base images must exist first: `scripts/build_bases.sh` in the benchmark repo, or one
  `docker build -f bases/<repo>/Dockerfile.base -t kotlin-bench/<repo>:base bases/<repo>`.
+- Run Level 2 on the certified tasks (needs Docker and `CURSOR_API_KEY`, one model call and one
+ container per arm per task): `./gradlew :eval:level2 -Pjetpacker.repo=/tmp/detekt
+ -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=detekt`.
+ `-Djetpacker.patcher=<script.py>` swaps the model backend for another one, or for a stub, which
+ is how to exercise the loop without spending calls. Both of these outlive a shell — run them
+ under `screen`, not `nohup`, and never concurrently with a Gradle build of this repo.
 
 ## Analysis API dependency wiring (hard-won; don't "simplify" it)
 
