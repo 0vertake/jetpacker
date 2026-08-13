@@ -102,7 +102,8 @@ scored from the issue text alone, recall of the declarations each fix changed:
 
 Retrieving whole declarations instead of windows is worth more than any ranking
 change — swapping BM25 for a local `all-MiniLM-L6-v2` over the *same* windows
-costs 20 points rather than closing the gap — and structural expansion is worth
+costs 16.6 to 20.1 points on all three suites it has run on, rather than closing
+the gap — and structural expansion is worth
 10–23 points over the seeds alone. The
 same ordering holds on ktlint's 43 tasks and ort's 12 — where the margin is
 widest, more than double BM25 at 4k — and on 60 tasks mined from detekt's commit
