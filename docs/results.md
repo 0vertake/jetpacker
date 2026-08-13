@@ -111,7 +111,8 @@ detekt in absolute terms:
 | `seeds-only` | 13.0% | 17.0% | 25.4% | 42.7% |
 | `bm25:full.00` | 15.5% | 20.1% | 31.5% | 51.4% |
 | `bm25:full.30` | 12.1% | 16.6% | 21.6% | 36.1% |
-| `chunk-bm25` | 3.4% | 3.4% | 3.4% | 5.8% |
+| `chunk-bm25` | 3.4% | 4.5% | 5.8% | 13.4% |
+| `chunk-embed` | 0.7% | 0.7% | 0.7% | 2.1% |
 | `repo-map` | 0.6% | 2.5% | 2.8% | 6.8% |
 | `file-dump` | 5.1% | 3.8% | 4.8% | 4.3% |
 
@@ -122,6 +123,13 @@ different and both are worth reading.
 the gold files; BM25 finds 31.5% while touching 82.6%. Expansion concentrates the budget on a
 neighbourhood and gets the declarations inside it; keyword ranking scatters signatures across more
 files and lands on fewer of the right ones. File-level accuracy would have called that a loss.
+
+**The dense baseline is worse here than on detekt, not better.** `chunk-embed` reaches 0.7% at three
+budgets out of four and 2.1% at 8k, against `chunk-bm25`'s 3.4% to 13.4% over the identical windows —
+so the dense ranking loses by a factor of six on a second repository, and the detekt result was not
+a quirk of one corpus. ktlint is the harder case for it: an issue there quotes the rule and the
+option by name, `MAX_LINE_LENGTH_PROPERTY` and its like, and those rare tokens are exactly what BM25
+keys on and what a 384-dimension sentence embedding averages away.
 
 **Test seeding is expensive here.** `jp:seed-tests` costs 19 points at 8k, against 12.8 on mined
 detekt commits and roughly nothing on detekt issues. ktlint's rule tests are named after the
@@ -353,7 +361,8 @@ detekt, 60 tasks from the last few hundred commits. Recall@budget:
 | `seeds-only` | 21.3% | 35.8% | 46.8% | 54.2% |
 | `bm25:full.00` | 39.3% | 45.1% | 51.2% | 56.2% |
 | `bm25:full.30` | 35.9% | 42.3% | 43.2% | 38.7% |
-| `chunk-bm25` | 24.1% | 28.4% | 30.1% | 34.0% |
+| `chunk-bm25` | 26.3% | 28.6% | 32.9% | 40.2% |
+| `chunk-embed` | 10.2% | 14.8% | 16.3% | 18.4% |
 | `repo-map` | 1.7% | 2.6% | 8.4% | 13.9% |
 | `file-dump` | 6.5% | 16.8% | 10.2% | 9.0% |
 
@@ -367,8 +376,11 @@ the extra lines they buy are not the lines being looked for.
 
 **The retrieval unit matters more than the ranking.** `chunk-bm25` and `bm25:full.00` are the same
 BM25 with the same budget and the same tokenizer. One retrieves 40-line windows and the other whole
-declarations, and that alone is worth 21 points at 4k. Windows spend the budget on partial
+declarations, and that alone is worth 18.3 points at 4k. Windows spend the budget on partial
 declarations that cannot be credited, and on the halves of neighbours that came along with them.
+Ranking those same windows densely instead costs a further 16.6 points, which is the third suite in
+a row where the dense arm finishes last of the two — and here it does so on text that is not even
+issue prose, so the loss does not depend on how an issue is worded.
 
 **Expansion is doing most of the work.** `seeds-only` gets the same seeds and the same number of
 candidates, with the graph switched off, and trails by 12 to 22 points. The gap is widest at small
@@ -423,7 +435,8 @@ Splitting the 4k mined run by whether the commit message names a declaration the
 | `jp:default` | 94.3% | 51.6% |
 | `seeds-only` | 84.7% | 43.3% |
 | `bm25:full.00` | 69.7% | 49.6% |
-| `chunk-bm25` | 45.3% | 28.8% |
+| `chunk-bm25` | 43.0% | 31.9% |
+| `chunk-embed` | 10.0% | 16.8% |
 
 The named slice is five tasks and cannot support a claim on its own. It is here because it is the
 case that *should* favour keyword search and does not: even when the task says the name, expanding
@@ -438,6 +451,13 @@ Read these before quoting any number above.
   Anki-Android (6) needs an Android SDK, and okhttp (2) needs a GraalVM toolchain its build demands
   by vendor and cannot auto-provision on this machine. Nothing about those 8 is known to favour or
   disfavour the engine.
+- **Only Kotlin declarations can be packed, and here that costs nothing.** The indexer walks Kotlin
+  files, so a Java declaration is never a candidate, and gold extraction counts Kotlin files for the
+  same reason. On this suite the two decisions cancel: not one of the 97 tasks' gold patches touches
+  a `.java` file, so no part of any fix is missing from a denominator. Java still matters on the
+  other side of the boundary — resolution reaches *into* Java on the classpath, which is tested
+  against a plain Java library — so a mixed repository resolves normally and simply cannot have its
+  Java declarations packed. On a repository whose fixes land in Java, that is a real ceiling.
 - **dataframe's graph is thin.** 37.6% of its call sites resolve, against 96% on recent detekt, so
   its numbers say less about ranking than the others do. Resolution failures no longer abort an
   index, but a call that does not resolve is still an edge the engine does not have.
@@ -456,18 +476,25 @@ Read these before quoting any number above.
   shipped default still spends 15% of the budget on whole bodies even though `jp:all-stubs` scores
   0.8 to 7.9 points higher without them. That is a judgement about what an agent needs, not a
   result — the metric says signatures only.
-- **The embedding baseline has run on detekt only.** `chunk-embed` costs about half an hour a
-  repository, so the other five tables have no dense arm yet. One repository is enough to answer
-  the objection and not enough to generalise: a corpus where topical similarity is more
-  discriminating than a linter's is exactly where the result could go the other way.
+- **The embedding baseline has run on three suites, not six.** `chunk-embed` costs about half an
+  hour a suite, and it has now run on detekt's issues, ktlint's 43 tasks and the 60 mined detekt
+  commits, losing to BM25 over identical windows on all three by 16.6 to 20.1 points. ort,
+  dataframe, TeXiFy and shadow still have no dense arm. Three suites and two repositories are
+  enough to say the default choice does badly on linter-shaped corpora, and not enough to
+  generalise: a corpus where topical similarity is more discriminating is exactly where it could go
+  the other way.
 - **The embedding baseline uses one general-purpose model.** `all-MiniLM-L6-v2` is what most RAG
   stacks reach for, not what a team optimising for code retrieval would pick. A code-trained
   embedding is the obvious next arm, and the honest reading of `chunk-embed` today is "the default
   choice does badly here", not "dense retrieval does badly here".
 - **Chunk arms rank on the window plus its file path**, which is what chunking pipelines index and
   what the engine already had through `fqName`. It is worth 7.6 points to `chunk-bm25` at 4k on
-  detekt. The tables for the other five repositories, and both mined-commit tables, were measured
-  before that change and understate their chunk arm; they are re-run as a block, not patched.
+  detekt. ktlint and the mined detekt suite have since been re-run in full and their chunk arms are
+  current — the fix was worth 2.4 points to ktlint at 4k and 6.2 to the mined suite at 8k, and every
+  other arm reproduced to the decimal, which is the determinism guarantee holding across a month and
+  a code change. ort, dataframe, TeXiFy and shadow still carry the pre-fix numbers and understate
+  their chunk arm by an amount of that order; their clones are gone from this machine, so they are
+  re-run as a block rather than patched.
 - **The repo map is being used as something it is not.** Aider builds a whole-repo overview,
   personalized by the files already in the chat. Scored as a task retriever with no chat files, it
   ranks by global importance instead of task relevance. Its low score is a statement about that
