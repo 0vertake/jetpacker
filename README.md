@@ -1,5 +1,7 @@
 # Jetpacker
 
+[![CI](https://github.com/0vertake/jetpacker/actions/workflows/ci.yml/badge.svg)](https://github.com/0vertake/jetpacker/actions/workflows/ci.yml)
+
 > Working name. A context packer for AI coding agents, built on compiler-grade
 > Kotlin code structure — plus the benchmark that proves (or disproves) it helps.
 
@@ -12,6 +14,46 @@ hierarchies, and affected tests — instead of similar-looking text chunks.
 Under the hood: Kotlin Analysis API (PSI-level resolution) → typed code graph →
 personalized PageRank from task seeds → density knapsack under a hard token
 budget → deterministic Markdown/JSON pack. Delivered as a CLI and an MCP server.
+
+## What a pack looks like
+
+Jetpacker packing its own repository, for a task about the packer overshooting
+its budget. Twelve seconds, and the budget is exact:
+
+```sh
+packer pack --repo . --task task.md --budget 2000
+```
+
+````markdown
+# Context pack
+
+2000 / 2000 tokens, 66 declarations.
+
+## Definitions
+
+### dev.jetpacker.core.pack.Packer.Companion
+`core/src/main/kotlin/dev/jetpacker/core/pack/Packer.kt:160` — member-of:Packer
+
+```kotlin
+    companion object {
+        const val DEFAULT_BUDGET = 4000
+        const val DEFAULT_FULL_TIER_SHARE = 0.15
+        ...
+    }
+```
+
+## Related signatures
+
+`core/src/main/kotlin/dev/jetpacker/core/pack/Packer.kt`
+- 53: fun pack(ranked: List<Ranked>): Pack — member-of:Packer
+- 82: fun consider(candidate: Ranked, fidelity: Fidelity, limit: Int) — caller-of:fileHeading
+- 129: private fun byDensity(candidates: List<Ranked>, fidelity: Fidelity) — member-of:Packer
+````
+
+Every item carries **why it is there** — `seed`, `caller-of:X`, `member-of:Y`,
+`same-file:Z` — so the pack can be audited instead of trusted. Bodies go to what
+matters most, signatures cover the rest, and the same repository state and task
+always produce a byte-identical pack.
 
 ## Why
 
@@ -86,7 +128,7 @@ Requires JDK 21.
 
 ```sh
 ./gradlew :cli:installDist
-cli/build/install/cli/bin/cli pack --repo /path/to/project --task task.md --budget 4000
+cli/build/install/packer/bin/packer pack --repo /path/to/project --task task.md --budget 4000
 ```
 
 Or as an MCP server over stdio, which indexes the repository once at startup and
@@ -96,9 +138,13 @@ then answers `get_context_pack(task, budget)` per request:
 {
   "mcpServers": {
     "jetpacker": {
-      "command": "/path/to/jetpacker/cli/build/install/cli/bin/cli",
+      "command": "/path/to/jetpacker/cli/build/install/packer/bin/packer",
       "args": ["serve", "--repo", "/path/to/project"]
     }
   }
 }
 ```
+
+## License
+
+[MIT](LICENSE).
