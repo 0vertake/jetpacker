@@ -15,6 +15,23 @@ Under the hood: Kotlin Analysis API (PSI-level resolution) → typed code graph 
 personalized PageRank from task seeds → density knapsack under a hard token
 budget → deterministic Markdown/JSON pack. Delivered as a CLI and an MCP server.
 
+```mermaid
+flowchart LR
+  R[Kotlin repository] --> G[Gradle Tooling API<br/>source roots, classpath]
+  G --> I[Analysis API indexer<br/>declarations, resolved edges]
+  T[Task text] --> S[Seed finder]
+  I --> S
+  S --> X[Expansion<br/>personalized PageRank]
+  I --> X
+  X --> P[Packer<br/>density knapsack, hard budget]
+  P --> O[Pack<br/>bodies, signatures, why]
+  O --> C[packer pack]
+  O --> M[packer serve · MCP]
+```
+
+Resolution is the part that matters: edges come from the compiler's own answer
+to "what does this call?", not from a name that looks the same in twelve files.
+
 ## What a pack looks like
 
 Jetpacker packing its own repository, for a task about the packer overshooting
@@ -106,6 +123,13 @@ and to its own no-expansion ablation. Read
 suite's 105 tasks run, keyword search still wins below 2k on the smaller
 repositories, and Level 2 (does a better pack produce a better patch?) is not
 measured yet.
+
+Level 2 is built and its method is fixed in advance — the judge, the certified
+tasks, the arms, the prompt, and a leakage audit of every issue text — in
+[`docs/level2.md`](docs/level2.md). Nine detekt tasks are certified as both
+resolvable and failable by their own verifiers; the numbers are the only thing
+missing, and they will be reported on nine tasks, which is directional and not
+a Kotlin Benchmark score.
 
 ## Layout
 
