@@ -84,7 +84,8 @@ task 4205 the gold file's best window ranks 42nd of 2275, inside the top 2%, and
 windows. A general-purpose embedding spreads its confidence across everything topically alike, and
 in a linter every rule and every rule spec is topically alike, while BM25 keys on the rare
 identifiers an issue quotes verbatim. This is the arm that answers "your chunk baseline lost
-because BM25 is not real RAG"; on this corpus, real RAG does worse.
+because BM25 is not real RAG"; on this corpus, real RAG does worse — though on two of the six
+repositories it does better, and that split is tabulated at the end of this section.
 
 **One test-seeding result flips.** `jp:seed-tests` — test declarations allowed to seed on their own
 names — costs 12.8 points at 8k on mined commits but beats the shipped default here at 2k, 4k and
@@ -127,7 +128,8 @@ files and lands on fewer of the right ones. File-level accuracy would have calle
 **The dense baseline is worse here than on detekt, not better.** `chunk-embed` reaches 0.7% at three
 budgets out of four and 2.1% at 8k, against `chunk-bm25`'s 3.4% to 13.4% over the identical windows —
 so the dense ranking loses by a factor of six on a second repository, and the detekt result was not
-a quirk of one corpus. ktlint is the harder case for it: an issue there quotes the rule and the
+a quirk of one corpus. It is not universal either — on ort and dataframe the dense arm wins, which is
+the comparison at the end of this section. ktlint is the harder case for it: an issue there quotes the rule and the
 option by name, `MAX_LINE_LENGTH_PROPERTY` and its like, and those rare tokens are exactly what BM25
 keys on and what a 384-dimension sentence embedding averages away.
 
@@ -151,7 +153,8 @@ climbing steeply with the budget rather than saturating.
 | `seeds-only` | 14.2% | 26.3% | 36.8% | 44.7% |
 | `bm25:full.00` | 13.7% | 19.4% | 24.8% | 42.4% |
 | `bm25:full.30` | 13.7% | 17.9% | 18.7% | 21.5% |
-| `chunk-bm25` | 4.8% | 11.5% | 13.3% | 25.9% |
+| `chunk-bm25` | 4.8% | 8.7% | 12.4% | 25.9% |
+| `chunk-embed` | 6.3% | 11.3% | 20.2% | 17.0% |
 | `repo-map` | 1.3% | 1.3% | 7.3% | 33.0% |
 | `file-dump` | 7.8% | 11.1% | 10.7% | 24.7% |
 
@@ -167,19 +170,29 @@ whose gold patches touch as many as 19 declarations at once:
 
 | retriever | 1k | 2k | 4k | 8k |
 |-----------|----|----|----|----|
-| `jp:all-stubs` | **11.0%** | **16.0%** | 17.1% | **40.2%** |
-| `jp:default` | 10.0% | **16.0%** | 17.1% | **40.2%** |
+| `jp:all-stubs` | 11.0% | 16.0% | 17.1% | **40.2%** |
+| `jp:default` | 10.0% | 16.0% | 17.1% | **40.2%** |
 | `jp:seed-tests` | 10.0% | 15.0% | 16.0% | 37.4% |
 | `seeds-only` | 4.2% | 6.3% | 18.4% | 18.4% |
-| `bm25:full.00` | 4.2% | 12.4% | **21.3%** | 31.3% |
-| `bm25:full.30` | 3.2% | 12.4% | **21.3%** | 31.3% |
+| `bm25:full.00` | 4.2% | 12.4% | 21.3% | 31.3% |
+| `bm25:full.30` | 3.2% | 12.4% | 21.3% | 31.3% |
 | `chunk-bm25` | 0.0% | 0.0% | 10.0% | 10.0% |
+| `chunk-embed` | **30.0%** | **30.0%** | **37.1%** | **40.2%** |
 | `repo-map` | 0.0% | 0.0% | 0.0% | 5.0% |
 | `file-dump` | 0.0% | 0.0% | 0.0% | 1.1% |
 
-The engine leads at three budgets of four and by 9 points at 8k, but the 4k row is a genuine loss to
-BM25 and worth more than the win: with gold sets this large, no arm gets most of a patch, and which
-third of it each one finds is close to arbitrary at a single budget.
+**This is the table where the engine loses to dense retrieval, and loses badly.** `chunk-embed` leads
+at 1k, 2k and 4k — 37.1% against the engine's 17.1% at 4k, more than double — and only draws level at
+8k. It is also the one place any arm beats the engine by that margin, and it does so while its own
+BM25 twin, over the *identical* windows, scores 0 to 10%. So this is not the retrieval unit winning;
+it is the ranking. dataframe's issues describe DSL behaviour in prose, its API surface is enormous and
+repetitive, and topical similarity is exactly the right instrument for that, which is the case the
+`chunk-embed` caveat named in advance and this table confirms.
+
+Read it next to the resolution figure below: the engine's edge comes from resolved edges, dataframe
+gives it a third of them, and where the graph is thin an embedding over raw text is the better tool.
+Among the arms that rank declarations, the engine still leads at three budgets of four, and the 4k
+loss to BM25 is the same story in miniature.
 
 These 5 tasks previously scored nothing at all: the Analysis API throws on one of dataframe's DSL
 calls — overload resolution reaches a state it asserts cannot happen — and that single call site
@@ -204,6 +217,7 @@ over BM25 at 8k is what expansion manages on a third of the edges.
 | `bm25:full.00` | **16.7%** | **20.8%** | **25.0%** | 30.8% |
 | `bm25:full.30` | **16.7%** | **20.8%** | **25.0%** | 29.6% |
 | `chunk-bm25` | 12.5% | 12.5% | 12.5% | 12.5% |
+| `chunk-embed` | 0.0% | 0.0% | 0.0% | 6.7% |
 | `repo-map` | 0.0% | 0.0% | 0.0% | 0.0% |
 | `file-dump` | 0.0% | 0.0% | 0.0% | 0.0% |
 
@@ -230,6 +244,35 @@ dropped rather than kept as a tuning knob.
 Its single task in the suite runs. One task is a coin flip — every arm scores 0% or 100%, and at
 4k the shipped default scores 0% while `jp:seed-tests` and `repo-map` score 100%; by 8k the default
 finds it too. Reported as coverage, not as a result.
+
+### Dense or sparse over the same windows, on every suite
+
+`chunk-bm25` and `chunk-embed` differ in exactly one thing: cosine similarity against
+`all-MiniLM-L6-v2` instead of BM25, over identical 40-line windows. Recall@4k, with the engine's
+shipped default beside them for scale; bold marks the better of the two chunk arms, not the best arm
+on the suite:
+
+| suite | `chunk-bm25` | `chunk-embed` | `jp:default` |
+|-------|--------------|---------------|--------------|
+| detekt, 28 issues | **34.1%** | 14.0% | 70.8% |
+| detekt, 60 mined commits | **32.9%** | 16.3% | 55.2% |
+| ktlint, 43 issues | **5.8%** | 0.7% | 38.5% |
+| TeXiFy, 8 issues | **12.5%** | 0.0% | 12.5% |
+| ort, 12 issues | 12.4% | **20.2%** | 51.8% |
+| dataframe, 5 issues | 10.0% | **37.1%** | 17.1% |
+| shadow, 1 issue | 0.0% | 0.0% | 0.0% |
+
+**Which ranking wins depends on the repository, and it splits along a line worth naming.** BM25 wins
+on the three linter-shaped corpora and on TeXiFy, by 5 to 20 points, because their issues quote rare
+identifiers verbatim and everything in a linter is topically alike. Embeddings win on ort and
+dataframe — the largest repository here and the DSL one — by 8 and 27 points, where issues describe
+behaviour in prose and the rare-token signal is not there to key on.
+
+So "dense retrieval does worse on code" is not a claim this benchmark supports, and neither is its
+opposite. What survives on all seven suites is the *unit*: `bm25:full.00` retrieves whole
+declarations with the same scorer as `chunk-bm25` and beats it on every suite. The engine beats both
+chunk arms on four suites, ties the sparse one on TeXiFy and shadow, and loses to the dense one on
+dataframe, where its graph has a third of the edges it needs.
 
 ## Do the other metrics say anything different?
 
@@ -378,9 +421,10 @@ the extra lines they buy are not the lines being looked for.
 BM25 with the same budget and the same tokenizer. One retrieves 40-line windows and the other whole
 declarations, and that alone is worth 18.3 points at 4k. Windows spend the budget on partial
 declarations that cannot be credited, and on the halves of neighbours that came along with them.
-Ranking those same windows densely instead costs a further 16.6 points, which is the third suite in
-a row where the dense arm finishes last of the two — and here it does so on text that is not even
-issue prose, so the loss does not depend on how an issue is worded.
+Ranking those same windows densely instead costs a further 16.6 points, and it does so on text that
+is not issue prose at all, so on this corpus the dense loss does not depend on how an issue is
+worded. It does depend on the repository: ort and dataframe go the other way, which is the six-suite
+comparison above.
 
 **Expansion is doing most of the work.** `seeds-only` gets the same seeds and the same number of
 candidates, with the graph switched off, and trails by 12 to 22 points. The gap is widest at small
@@ -476,25 +520,23 @@ Read these before quoting any number above.
   shipped default still spends 15% of the budget on whole bodies even though `jp:all-stubs` scores
   0.8 to 7.9 points higher without them. That is a judgement about what an agent needs, not a
   result — the metric says signatures only.
-- **The embedding baseline has run on three suites, not six.** `chunk-embed` costs about half an
-  hour a suite, and it has now run on detekt's issues, ktlint's 43 tasks and the 60 mined detekt
-  commits, losing to BM25 over identical windows on all three by 16.6 to 20.1 points. ort,
-  dataframe, TeXiFy and shadow still have no dense arm. Three suites and two repositories are
-  enough to say the default choice does badly on linter-shaped corpora, and not enough to
-  generalise: a corpus where topical similarity is more discriminating is exactly where it could go
-  the other way.
+- **The dense baseline splits by repository, so no one-line reading of it is honest.** `chunk-embed`
+  has now run on all seven suites. It loses to BM25 over identical windows on detekt's issues, the
+  mined detekt commits, ktlint and TeXiFy by 5.1 to 20.1 points, and it wins on ort by 7.8 and on
+  dataframe by 27.1 — where it also beats the engine itself at three budgets of four. Anyone quoting
+  the detekt row alone is quoting the half that flatters this project.
 - **The embedding baseline uses one general-purpose model.** `all-MiniLM-L6-v2` is what most RAG
   stacks reach for, not what a team optimising for code retrieval would pick. A code-trained
-  embedding is the obvious next arm, and the honest reading of `chunk-embed` today is "the default
-  choice does badly here", not "dense retrieval does badly here".
+  embedding is the obvious next arm, and it would be expected to raise the dense numbers on the four
+  suites where they lose, not only the two where they win.
 - **Chunk arms rank on the window plus its file path**, which is what chunking pipelines index and
   what the engine already had through `fqName`. It is worth 7.6 points to `chunk-bm25` at 4k on
   detekt. ktlint and the mined detekt suite have since been re-run in full and their chunk arms are
-  current — the fix was worth 2.4 points to ktlint at 4k and 6.2 to the mined suite at 8k, and every
-  other arm reproduced to the decimal, which is the determinism guarantee holding across a month and
-  a code change. ort, dataframe, TeXiFy and shadow still carry the pre-fix numbers and understate
-  their chunk arm by an amount of that order; their clones are gone from this machine, so they are
-  re-run as a block rather than patched.
+  detekt. **Every suite has since been re-run in full, so no table quotes a pre-fix chunk arm.** The
+  fix was not uniformly kind to the baseline: it gained 2.4 points on ktlint at 4k and 6.2 on the
+  mined suite at 8k, lost 2.8 on ort at 2k, and changed dataframe, TeXiFy and shadow by nothing.
+  Across all seven re-runs every non-chunk arm reproduced to the decimal, a month and several code
+  changes later, which is the determinism requirement being tested rather than asserted.
 - **The repo map is being used as something it is not.** Aider builds a whole-repo overview,
   personalized by the files already in the chat. Scored as a task retriever with no chat files, it
   ranks by global importance instead of task relevance. Its low score is a statement about that
