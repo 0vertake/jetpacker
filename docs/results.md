@@ -491,6 +491,15 @@ Read these before quoting any number above.
   across detekt's cached indexes, whole-repository resolution runs 96–97% at 2023–2025 commits and
   76% at the oldest one, October 2021. The graph the ranker sees is thinner the further a task is
   from HEAD, so detekt's older tasks are handicapped rather than flattered by this shortcut.
+- **Two kinds of dependency are invisible to the build model.** The IDEA model is read without
+  running tasks, and it enumerates the standard configurations only — asked module by module on
+  detekt it reports 1,272 dependency entries in every scope, which dedupe to the 64 jars the
+  indexer gets. What it cannot report is a dependency declared in a *custom* configuration, or a
+  class that exists only as a *task output*. detekt does both: its Analysis API packaging modules
+  declare that dependency in an `aaDependency` configuration and republish it as a shadow jar, so
+  the Analysis API types 103 of its files import are missing from the classpath and calls into them
+  are counted unresolved. Those files postdate every base commit in the task set, so the cost here
+  is near zero — and a missing jar can only remove edges, never invent them.
 
 ## Reproducing
 
