@@ -12,6 +12,7 @@ kotlinxSerialization = "1.7.3"
 # Runs the embedding baseline's sentence-transformer locally: no API key, no per-run cost, and a
 # benchmark anyone can reproduce offline once the model is cached.
 djl = "0.36.0"
+slf4j = "2.0.16"
 
 [libraries]
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
@@ -19,6 +20,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 djl-api = { module = "ai.djl:api", version.ref = "djl" }
 djl-tokenizers = { module = "ai.djl.huggingface:tokenizers", version.ref = "djl" }
 djl-onnxruntime = { module = "ai.djl.onnxruntime:onnxruntime-engine", version.ref = "djl" }
+slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
