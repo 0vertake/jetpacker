@@ -34,8 +34,9 @@ import kotlin.time.TimeSource
  *
  * It also means no arm here is the shipped default, which gives bodies 15% of the budget because
  * that is what maximized recall (`Packer.DEFAULT_FULL_TIER_SHARE`). Whether recall-optimal packing
- * is also patch-optimal is a real question and this sample cannot answer it: nine tasks cannot
- * separate one arm from another. Any writeup of these numbers has to say which configuration ran.
+ * is also patch-optimal is a real question and this sample cannot answer it: it runs one body
+ * share, so packing policy and retrieval stay confounded. Any writeup of these numbers has to say
+ * which configuration ran.
  */
 fun main() {
     val repo = Path.of(System.getProperty("jetpacker.repo") ?: error("set -Djetpacker.repo=<path>"))

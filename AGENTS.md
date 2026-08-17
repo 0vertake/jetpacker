@@ -37,6 +37,8 @@ benchmark design, milestones, and kill-tests.
  roughly doubles a benchmark run.
 - Certify Level-2 tasks (needs Docker, ~18 min and ~6GB of image per task):
  `./gradlew :eval:certify -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=detekt`
+ Repeat with `-Pjetpacker.harbor.repo=ktlint` for the second repository. The ledger is
+ `~/.jetpacker-l2/certified.tsv`; a snapshot of it lives in `docs/certified.tsv`.
  Base images must exist first: `scripts/build_bases.sh` in the benchmark repo, or one
  `docker build -f bases/<repo>/Dockerfile.base -t kotlin-bench/<repo>:base bases/<repo>`.
 - Run Level 2 on the certified tasks (needs Docker and `CURSOR_API_KEY`, one model call and one
