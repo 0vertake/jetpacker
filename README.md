@@ -131,10 +131,10 @@ measured yet.
 
 Level 2 is built and its method is fixed in advance — the judge, the certified
 tasks, the arms, the prompt, and a leakage audit of every issue text — in
-[`docs/level2.md`](docs/level2.md). Nine detekt tasks are certified as both
-resolvable and failable by their own verifiers; the numbers are the only thing
-missing, and they will be reported on nine tasks, which is directional and not
-a Kotlin Benchmark score.
+[`docs/level2.md`](docs/level2.md). 63 tasks are certified as both resolvable
+and failable by their own verifiers — 20 of detekt and all 43 of ktlint. The
+numbers are the only thing missing. They will be reported on those tasks, which
+is still directional and not a Kotlin Benchmark score.
 
 ## Layout
 

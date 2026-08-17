@@ -25,13 +25,24 @@ candidate is therefore run twice against its own verifier before any model is ca
 gold patch, which must come out resolved, and once with no patch at all, which must not. This is not
 a formality — all 105 tasks in the suite declare `[verifier] implemented = false`.
 
-Of the first ten detekt tasks, **nine certified**. The exception is `detekt_detekt-4628`, whose image
-cannot be built on this machine: its build runs detekt's Gradle-plugin tests, which include Android
-functional tests, and AAPT2's native daemon fails to start in the container. That is an environment
-limit, recorded as such, and the task is excluded rather than scored as anything.
+**63 tasks certified** across two repositories — every task whose image built and whose gold patch
+resolved: 20 of detekt's 28, and all 43 of ktlint. The ledger is [`docs/certified.tsv`](certified.tsv).
+Gold resolved and empty failed on every one of them.
+
+What is missing, and why, is also measured:
+
+- `detekt_detekt-4628` cannot be built on this machine: its build runs detekt's Gradle-plugin tests,
+  which include Android functional tests, and AAPT2's native daemon fails to start in the container.
+  Recorded as `NO_IMAGE` and excluded rather than scored as anything.
+- `detekt_detekt-7212` and `7635` built, but the gold patch did not resolve. They are in the ledger
+  as unusable, not as model failures.
+- Five later detekt tasks (`7625`, `7667`, `7718`, `7871`, `7888`) OOM'd during `prepare.sh` inside
+  Docker Desktop's 8GB VM. Image-build failures are not written to the ledger, so they are retried
+  rather than silently dropped. They are not in the sample until they certify.
 
 Certification cost between 4 minutes and an hour per task, almost all of it the image build, which
-runs the repository's whole test suite as a build step.
+runs the repository's whole test suite as a build step. ktlint's later tasks landed around 4 minutes
+once their base image was warm.
 
 ## What the model is told
 
@@ -64,20 +75,23 @@ Budget is 4000 tokens for every arm.
 **No arm runs the shipped body share.** Both retrieval arms spend the entire budget on full bodies,
 because a model cannot edit a signature, while the packer ships 15% bodies because that is what
 maximized Level-1 recall. Whether recall-optimal packing is also patch-optimal is a real question
-and a nine-task sample cannot answer it. These numbers are therefore not the Level-1 engine's score
-carried forward.
+and this sample cannot answer it: it runs one body share, so packing policy and retrieval stay
+confounded. These numbers are therefore not the Level-1 engine's score carried forward.
 
 ## What this sample can and cannot say
 
-Nine tasks, one repository, four arms. A one-task difference is not a result, and nothing here will
-be reported as a Kotlin Benchmark score.
+63 tasks, two repositories, four arms. A one-task difference is still not a result. A ten-task gap
+between arms on ktlint's 43 would be, and nothing here will be reported as a Kotlin Benchmark score
+— one unpinned model, one shot, and bodies-only packing that the product does not ship.
 
 Two properties of the sample are worth knowing, both checked rather than assumed:
 
-- **No issue text leaks the fix.** None of the nine contains a diff, and not one names the file its
-  fix touches. Where an issue does name a Kotlin file, it belongs to the reporter's own project — an
-  AWS toolkit, a screenshot library, a chat SDK — whose code triggered the false positive. Locating
-  detekt's rule implementation is left entirely to retrieval.
+- **No issue text contains a diff.** Of the 63, 61 name none of the Kotlin/Java files the gold patch
+  touches. The two exceptions are ktlint crash reports (`2029`, `2541`) whose stack traces mention a
+  gold file the way a JVM dump does, not by describing the change. The rest of those patches, and
+  every detekt fix, still have to be found. Where a detekt issue names a Kotlin file, it belongs to
+  the reporter's own project — an AWS toolkit, a screenshot library, a chat SDK — whose code
+  triggered the false positive.
 - **The issues name code.** They name the rule that misbehaved, which is what the seed finder keys
   on. That is the regime the engine is built for, and Level 1 already reports a repository where
   the text describes user-visible behaviour instead and the engine loses.
@@ -91,12 +105,17 @@ SWE-bench scores.
 
 ```bash
 # Certify first: two full suite runs per task, hours, resumable.
+# Base images must exist (`scripts/build_bases.sh` in the benchmark repo).
 ./gradlew :eval:certify -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks \
-  -Pjetpacker.harbor.repo=detekt -Pjetpacker.tasks=10
+  -Pjetpacker.harbor.repo=detekt
+./gradlew :eval:certify -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks \
+  -Pjetpacker.harbor.repo=ktlint
 
-# Then score the certified tasks. Needs CURSOR_API_KEY.
+# Then score, one repository at a time. Needs CURSOR_API_KEY.
 ./gradlew :eval:level2 -Pjetpacker.repo=/tmp/detekt \
   -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=detekt
+./gradlew :eval:level2 -Pjetpacker.repo=/tmp/ktlint \
+  -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=ktlint
 ```
 
 Both outlive a shell; run them under `screen`, never concurrently with each other or with a Gradle
