@@ -8,6 +8,7 @@ import dev.jetpacker.core.project.readGradleProject
 import dev.jetpacker.core.rank.EdgeWeights
 import dev.jetpacker.core.rank.Ranked
 import dev.jetpacker.core.rank.Ranker
+import dev.jetpacker.core.seed.DenseSeeds
 import dev.jetpacker.core.seed.SeedFinder
 import java.nio.file.Path
 
@@ -26,8 +27,9 @@ class Jetpacker(
     private val testShare: Double = Packer.DEFAULT_TEST_SHARE,
     private val seeds: Int = DEFAULT_SEEDS,
     testPenalty: Double = SeedFinder.DEFAULT_TEST_PENALTY,
+    dense: DenseSeeds? = null,
 ) : Retriever {
-    private val seedFinder = SeedFinder(index, testPenalty)
+    private val seedFinder = SeedFinder(index, testPenalty, dense)
     private val ranker = Ranker(index, weights)
 
     override fun pack(task: String, budget: Int): Pack =

@@ -58,6 +58,37 @@ class SeedFinderTest {
     }
 
     @Test
+    fun `an embedding channel can seed when no word of the task appears in the code`() {
+        val dense = DenseSeeds { task ->
+            assertEquals("update the CSS grid on the marketing page", task)
+            mapOf(index.symbols.indexOfFirst { it.id == "fixture.GreetingService" } to 1.0)
+        }
+        val seeds = SeedFinder(index, dense = dense)
+            .find("update the CSS grid on the marketing page")
+
+        assertEquals("fixture.GreetingService", seeds.first().id)
+        assertTrue("seed:embed" in seeds.first().why)
+        assertTrue(
+            "seed:search" !in seeds.first().why && "seed:mentioned" !in seeds.first().why,
+            "the point of the channel is a hit the other two cannot make, got ${seeds.first().why}",
+        )
+    }
+
+    @Test
+    fun `embedding scores do not let a spec name outseed the code it exercises`() {
+        val test = specNames.symbols.indexOfFirst { it.isTest && "combine" in it.name }
+        val code = specNames.symbols.indexOfFirst { !it.isTest && it.name == "combineNumbersTogether" }
+        val dense = DenseSeeds { mapOf(test to 1.0, code to 0.9) }
+        val seeds = SeedFinder(specNames, dense = dense).find("combine numbers together")
+
+        assertEquals(
+            specNames.symbols[code].id,
+            seeds.first().id,
+            "the same test penalty as BM25, or the channel would undo it, got ${seeds.map { it.id }}",
+        )
+    }
+
+    @Test
     fun `ranking is stable across runs`() {
         val task = "the greeter should greet"
 

@@ -24,6 +24,8 @@ data class GradleProject(
  * This configures the target build (resolving its dependencies, so it needs network on a cold
  * cache) but runs no tasks. Gradle is asked for its IDEA model because that is the one model
  * guaranteed to expose resolved dependency files without the target build cooperating.
+ *
+ * Source directories the project asked IntelliJ to hide (`idea { excludeDirs }`) are dropped.
  */
 fun readGradleProject(projectDir: Path): GradleProject {
     val connector = GradleConnector.newConnector().forProjectDirectory(projectDir.toFile())
@@ -31,8 +33,15 @@ fun readGradleProject(projectDir: Path): GradleProject {
         val modules = connection.getModel(IdeaProject::class.java).modules
 
         val contentRoots = modules.flatMap { module -> module.contentRoots.orEmpty() }
-        val mainRoots = contentRoots.flatMap { it.sourceDirectories.orEmpty() }.map { it.directory.toPath() }
-        val testRoots = contentRoots.flatMap { it.testDirectories.orEmpty() }.map { it.directory.toPath() }
+        val excluded = contentRoots.flatMap { it.excludeDirectories.orEmpty() }.map { it.toPath() }
+        val mainRoots = withoutExcluded(
+            contentRoots.flatMap { it.sourceDirectories.orEmpty() }.map { it.directory.toPath() },
+            excluded,
+        )
+        val testRoots = withoutExcluded(
+            contentRoots.flatMap { it.testDirectories.orEmpty() }.map { it.directory.toPath() },
+            excluded,
+        )
 
         val classpath = modules
             .flatMap { module -> module.dependencies.orEmpty() }
@@ -44,5 +53,18 @@ fun readGradleProject(projectDir: Path): GradleProject {
             testRoots = testRoots.distinct().sorted(),
             classpath = classpath.distinct().sorted(),
         )
+    }
+}
+
+/**
+ * Drops a source root that is an excluded directory, or that lives under one.
+ * The IDEA model can still list a folder as a source directory after `excludeDirs`.
+ */
+internal fun withoutExcluded(roots: List<Path>, excluded: Collection<Path>): List<Path> {
+    if (excluded.isEmpty()) return roots
+    val blocked = excluded.map { it.toAbsolutePath().normalize() }
+    return roots.filterNot { root ->
+        val path = root.toAbsolutePath().normalize()
+        blocked.any { path == it || path.startsWith(it) }
     }
 }

@@ -34,7 +34,8 @@ benchmark design, milestones, and kill-tests.
  `./gradlew :core:test -Djetpacker.repo=/path/to/repo --tests '*RealRepository*'`
 - Run the embedding baseline (opt-in, downloads a 90MB model): add `-Pjetpacker.embed=true`
  to `:eval:run`, or `-Djetpacker.embed=true` to `:baselines:test`. Off by default because it
- roughly doubles a benchmark run.
+ roughly doubles a benchmark run. The same flag also scores `jp:embed-seeds` (MiniLM as a
+ third seed channel); that arm is not in the published tables.
 - Certify Level-2 tasks (needs Docker, ~18 min and ~6GB of image per task):
  `./gradlew :eval:certify -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=detekt`
  Repeat with `-Pjetpacker.harbor.repo=ktlint` for the second repository. The ledger is
