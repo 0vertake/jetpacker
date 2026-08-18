@@ -126,15 +126,14 @@ plugin, embeddings over 40-line windows beat the engine at three budgets of four
 where the graph is thin, plain text similarity is the better instrument. Read
 [`docs/results.md`](docs/results.md) before quoting any of this: 97 of the
 suite's 105 tasks run, keyword search still wins below 2k on the smaller
-repositories, and Level 2 (does a better pack produce a better patch?) is not
-measured yet.
+repositories, and a better pack has not been shown to produce a better patch.
 
-Level 2 is built and its method is fixed in advance — the judge, the certified
-tasks, the arms, the prompt, and a leakage audit of every issue text — in
-[`docs/level2.md`](docs/level2.md). 63 tasks are certified as both resolvable
-and failable by their own verifiers — 20 of detekt and all 43 of ktlint. The
-numbers are the only thing missing. They will be reported on those tasks, which
-is still directional and not a Kotlin Benchmark score.
+Level 2 is built — judge, certified tasks, arms, prompt, leakage audit — in
+[`docs/level2.md`](docs/level2.md). **63 tasks are certified** (20 detekt, 43
+ktlint). The first scoring run reached two complete detekt tasks and then died
+on a dropped Cursor API connection; that is not a result, and there is no
+patch table to quote. What you can put on a CV is in
+[`docs/plan.md`](docs/plan.md) §10, taken only from Level 1.
 
 ## Layout
 
