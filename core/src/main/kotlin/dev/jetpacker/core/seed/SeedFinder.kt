@@ -6,6 +6,10 @@ import dev.jetpacker.core.index.Symbol
 /** A symbol the task text points at, with the channel that found it (docs/plan.md §6). */
 data class Seed(val id: String, val score: Double, val why: String)
 
+fun interface DenseSeeds {
+    fun score(task: String): Map<Int, Double>
+}
+
 /**
  * Turns task text into the symbols a pack should be built around.
  *
@@ -15,15 +19,18 @@ data class Seed(val id: String, val score: Double, val why: String)
  * and no Analysis API`, and expansion then restarted inside the test suite. Tests still reach a
  * pack the way they should — through a `test-of` edge from the code they exercise.
  *
- * Two channels, fused with Reciprocal Rank Fusion: BM25 over declaration names and docs, and
- * exact hits on identifiers the task quotes literally. They fail in different ways — BM25 is
- * robust to paraphrase but ranks a quoted `FooBar` no higher than any other term, while exact
- * matching is precise and brittle — so RRF is used rather than a weighted sum, since it needs no
- * calibration between two incomparable score scales.
+ * Two channels by default, fused with Reciprocal Rank Fusion: BM25 over declaration names and
+ * docs, and exact hits on identifiers the task quotes literally. They fail in different ways —
+ * BM25 is robust to paraphrase but ranks a quoted `FooBar` no higher than any other term, while
+ * exact matching is precise and brittle — so RRF is used rather than a weighted sum, since it
+ * needs no calibration between two incomparable score scales.
+ *
+ * A third, optional channel ([dense]) ranks by embedding similarity. Off unless passed in.
  */
 class SeedFinder(
     private val index: CodeIndex,
     private val testPenalty: Double = DEFAULT_TEST_PENALTY,
+    private val dense: DenseSeeds? = null,
 ) {
     private val bm25 = Bm25(index.symbols.map(::documentOf))
 
@@ -32,12 +39,25 @@ class SeedFinder(
         index.symbols.indices.groupBy { index.symbols[it].name }
 
     fun find(task: String, limit: Int = DEFAULT_SEEDS): List<Seed> {
-        val ranked = mapOf(
-            "seed:mentioned" to exactMatches(task),
-            "seed:search" to search(task, CANDIDATES, testPenalty),
-        )
+        val ranked = buildMap {
+            put("seed:mentioned", exactMatches(task))
+            put("seed:search", search(task, CANDIDATES, testPenalty))
+            dense?.let { put("seed:embed", embed(task)) }
+        }
         return fuse(ranked).take(limit)
     }
+
+    /** Dense ranking, same test penalty and candidate cap as [search]. */
+    private fun embed(task: String): List<Int> =
+        dense!!.score(task).entries
+            .sortedWith(
+                compareByDescending<Map.Entry<Int, Double>> {
+                    it.value * if (index.symbols[it.key].isTest) testPenalty else 1.0
+                }
+                    .thenBy { index.symbols[it.key].id },
+            )
+            .map { it.key }
+            .take(CANDIDATES)
 
     /** BM25 alone, exposed so the baseline can run the identical ranking without the graph. */
     fun search(task: String, limit: Int = CANDIDATES, testPenalty: Double = 1.0): List<Int> =

@@ -40,6 +40,7 @@ only thing that varies is which declarations get chosen and in what order.
 | `jp:default` | the shipped engine: 15% of the budget on whole bodies, the rest on signatures |
 | `jp:all-stubs` | the same, spending nothing on bodies |
 | `jp:seed-tests` | ablation: test declarations allowed to seed on their names |
+| `jp:embed-seeds` | `jp:default` plus a MiniLM seed channel, fused with RRF; opt-in, unmeasured |
 | `seeds-only` | ablation: structural expansion switched off, same seed ranking |
 | `names-only` | ablation: resolution off — call edges rebuilt by matching bare names |
 | `jp:-calls` … `jp:-testcode` | ablations: one relation removed at a time, tabled [below](#which-relation-earns-the-win) |
@@ -200,9 +201,16 @@ aborted the entire index. Resolution failures are now caught where they happen, 
 counted as unresolved and the other 73,000 in the repository still are.
 
 That is also the caveat on the whole table. Only **37.6%** of dataframe's call sites resolve to a
-declaration, against 96% on detekt at a recent commit: it is generated-heavy,
-compiler-plugin-driven code, and the graph the engine ranks over is correspondingly thin. The gap
-over BM25 at 8k is what expansion manages on a third of the edges.
+declaration (27,571 / 73,271 on the commit that published the figure), against 96% on detekt.
+`failedFiles` is 0: the misses are unsuccessful calls, not skipped files. The measured cause is
+not the compiler plugin in isolation. dataframe's `core` keeps a second copy of almost the whole
+API under `core/generated-sources/` — a KDoc-processed tree the project itself excludes from the
+IDE (`idea { excludeDirs }`). The indexer ignores that exclusion and flattens every IDEA source
+root into one Analysis API module, so 7,359 symbol ids exist in both trees and 7,564 ids in the
+index are not unique. Duplicate FQNs in one module are what overload resolution is asserting
+cannot happen. Dropping the duplicate tree has not been re-measured, so this does not claim the
+rate would become detekt's; it names why the graph is thin. The gap over BM25 at 8k is what
+expansion manages on a third of the edges.
 
 ### A fifth: TeXiFy, where the engine loses
 
@@ -503,8 +511,11 @@ Read these before quoting any number above.
   against a plain Java library — so a mixed repository resolves normally and simply cannot have its
   Java declarations packed. On a repository whose fixes land in Java, that is a real ceiling.
 - **dataframe's graph is thin.** 37.6% of its call sites resolve, against 96% on recent detekt, so
-  its numbers say less about ranking than the others do. Resolution failures no longer abort an
-  index, but a call that does not resolve is still an edge the engine does not have.
+  its numbers say less about ranking than the others do. The published “compiler plugin” reading
+  was incomplete: the index also contains `core/generated-sources/`, a KDoc copy of `core/src`
+  that IntelliJ is told to hide and that we still flatten into the same module. Resolution
+  failures no longer abort an index, but a call that does not resolve is still an edge the engine
+  does not have.
 - **Exposed predates the source-root fix**, so its table is not directly comparable to the others.
 - **ktlint's build model is read at a 2025 commit**, not at HEAD, because the current build needs a
   newer JDK than this harness runs. Every base commit in its 43 tasks is older than that, so the
