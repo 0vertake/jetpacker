@@ -34,6 +34,14 @@ class GradleProjectTest {
     }
 
     @Test
+    fun `drops source roots the project asked IntelliJ to hide`() {
+        assertTrue(
+            project.sourceRoots.none { "generated-sources" in it.toString() },
+            "the KDoc copy must not be indexed, got ${project.sourceRoots}",
+        )
+    }
+
+    @Test
     fun `reads resolved external dependencies as jars`() {
         val guava = project.classpath.filter { it.name.startsWith("guava-") }
 

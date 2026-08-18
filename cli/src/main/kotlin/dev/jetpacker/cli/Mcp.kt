@@ -2,6 +2,7 @@ package dev.jetpacker.cli
 
 import dev.jetpacker.core.Jetpacker
 import dev.jetpacker.core.Retriever
+import dev.jetpacker.core.pack.Pack
 import dev.jetpacker.core.pack.toMarkdown
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -22,7 +23,8 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
 /**
- * The MCP surface: one tool, `get_context_pack(task, budget)` (docs/plan.md §7 Phase 5).
+ * The MCP surface: `get_context_pack` for the briefing, `explain_context_pack` for why each
+ * declaration is in it (docs/plan.md §6 pack explainability).
  *
  * The repository is indexed once, before the first request, because resolving a real project costs
  * about a minute and an agent asking for a pack should not wait for it. That is the whole reason
@@ -47,7 +49,7 @@ fun serve(repo: Path) {
  * The SDK cannot run in this process. It is compiled against vanilla coroutines, the Analysis API
  * requires JetBrains' patched fork (AGENTS.md), and the fork is built without the `DefaultImpls`
  * classes that vanilla-compiled code calls into — so the two cannot share a classpath, and the SDK
- * dies at the first `channel.close()` with a `NoSuchMethodError`. Against that, one tool over four
+ * dies at the first `channel.close()` with a `NoSuchMethodError`. Against that, two tools over four
  * methods of a well-specified protocol is the smaller thing to own.
  */
 internal class McpServer(private val packer: Retriever) {
@@ -75,7 +77,7 @@ internal class McpServer(private val packer: Retriever) {
             when (method) {
                 "initialize" -> reply(id, initialize(params))
                 "ping" -> reply(id, JsonObject(emptyMap()))
-                "tools/list" -> reply(id, buildJsonObject { putJsonArray("tools") { add(TOOL) } })
+                "tools/list" -> reply(id, buildJsonObject { putJsonArray("tools") { TOOLS.forEach(::add) } })
                 "tools/call" -> call(id, params)
                 else -> failure(id, METHOD_NOT_FOUND, "unknown method: $method")
             },
@@ -98,8 +100,15 @@ internal class McpServer(private val packer: Retriever) {
 
     private fun call(id: JsonElement, params: JsonObject?): JsonObject {
         val tool = (params?.get("name") as? JsonPrimitive)?.contentOrNull
-        if (tool != TOOL_NAME) return failure(id, INVALID_PARAMS, "unknown tool: $tool")
-        return reply(id, contextPack(packer, params?.get("arguments") as? JsonObject))
+        val arguments = params?.get("arguments") as? JsonObject
+        return reply(
+            id,
+            when (tool) {
+                PACK_TOOL_NAME -> contextPack(packer, arguments)
+                EXPLAIN_TOOL_NAME -> explainPack(packer, arguments)
+                else -> return failure(id, INVALID_PARAMS, "unknown tool: $tool")
+            },
+        )
     }
 
     private companion object {
@@ -111,22 +120,49 @@ internal class McpServer(private val packer: Retriever) {
 }
 
 /**
- * The tool's body, kept out of the transport so it can be tested without one.
+ * The tools' bodies, kept out of the transport so they can be tested without one.
  *
  * Everything that can go wrong here comes back as a tool result with `isError`, not as a JSON-RPC
  * error: an agent that is told what was wrong with its arguments can fix them on the next call,
  * while a protocol error tells it only that the server broke.
  */
-internal fun contextPack(packer: Retriever, arguments: JsonObject?): JsonObject {
+internal fun contextPack(packer: Retriever, arguments: JsonObject?): JsonObject =
+    withPack(packer, arguments) { it.toMarkdown() }
+
+internal fun explainPack(packer: Retriever, arguments: JsonObject?): JsonObject =
+    withPack(packer, arguments) { encode(explained(it)) }
+
+private fun withPack(packer: Retriever, arguments: JsonObject?, render: (Pack) -> String): JsonObject {
     val task = (arguments?.get("task") as? JsonPrimitive)?.contentOrNull
     if (task.isNullOrBlank()) return failed("`task` is required and must not be empty")
 
     val budget = (arguments["budget"] as? JsonPrimitive)?.intOrNull ?: Retriever.DEFAULT_BUDGET
     if (budget <= 0) return failed("`budget` must be a positive number of tokens, got $budget")
 
-    val markdown = runCatching { packer.pack(task, budget).toMarkdown() }
+    val pack = runCatching { packer.pack(task, budget) }
         .getOrElse { return failed("packing failed: ${it.message ?: it::class.simpleName}") }
-    return text(markdown, isError = false)
+    return text(render(pack), isError = false)
+}
+
+/** Ids, paths and `why` — the briefing without the bodies, so an agent can audit the pack. */
+private fun explained(pack: Pack) = buildJsonObject {
+    put("tokens", pack.tokens)
+    put("budget", pack.budget)
+    putJsonArray("items") {
+        for (item in pack.items) {
+            add(
+                buildJsonObject {
+                    put("id", item.symbol.id)
+                    put("name", item.symbol.name)
+                    put("file", item.symbol.file)
+                    put("line", item.symbol.startLine)
+                    put("why", item.why)
+                    put("fidelity", item.fidelity.name.lowercase())
+                    put("tokens", item.tokens)
+                },
+            )
+        }
+    }
 }
 
 private fun failed(message: String) = text(message, isError = true)
@@ -161,16 +197,27 @@ private fun failure(id: JsonElement, code: Int, message: String) = buildJsonObje
 /** Never pretty-printed: a message is one line, and a pack is full of newlines that must escape. */
 private fun encode(message: JsonObject) = Json.encodeToString(JsonObject.serializer(), message)
 
-private const val TOOL_NAME = "get_context_pack"
+private const val PACK_TOOL_NAME = "get_context_pack"
+private const val EXPLAIN_TOOL_NAME = "explain_context_pack"
 
-private val TOOL = buildJsonObject {
-    put("name", TOOL_NAME)
-    put(
-        "description",
-        "Build a token-budgeted context pack of whole Kotlin declarations for a task, selected by " +
-            "compiler-resolved structure: the declarations the task names, what calls them, what " +
-            "implements them, and the tests around them. Returns Markdown.",
-    )
+private val PACK_TOOL = tool(
+    PACK_TOOL_NAME,
+    "Build a token-budgeted context pack of whole Kotlin declarations for a task, selected by " +
+        "compiler-resolved structure: the declarations the task names, what calls them, what " +
+        "implements them, and the tests around them. Returns Markdown.",
+)
+
+private val EXPLAIN_TOOL = tool(
+    EXPLAIN_TOOL_NAME,
+    "Same pack as get_context_pack, but as a list of declarations with why each is there " +
+        "(seed, caller-of, impl-of, test-of) instead of the code. Use this to audit a pack.",
+)
+
+private val TOOLS = listOf(PACK_TOOL, EXPLAIN_TOOL)
+
+private fun tool(name: String, description: String) = buildJsonObject {
+    put("name", name)
+    put("description", description)
     putJsonObject("inputSchema") {
         put("type", "object")
         putJsonObject("properties") {

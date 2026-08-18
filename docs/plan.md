@@ -98,7 +98,9 @@ task text ──► [1 Seed finder] ──► [2 Graph expander] ──► [3 Ra
 
 6. **Delivery surfaces**
    - **CLI**: `packer pack --repo . --task task.md --budget 4000 --format md|json`
-   - **MCP server**: single tool `get_context_pack(task, budget)` — agents (Claude Code, Cursor) call it once at task start. One tool, tiny schema — MCP tool bloat is a known tax.
+   - **MCP server**: `get_context_pack(task, budget)` for the briefing, `explain_context_pack` for
+     the same items as `{id, file, why}` without the bodies. Tiny schema; two tools rather than a
+     kitchen sink — MCP tool bloat is a known tax.
    - **IntelliJ plugin**: optional, last. Thin action that runs the engine in-IDE with the *real* project model. Nice for the JetBrains story, not required for the eval.
 
 ### Tech stack
@@ -212,7 +214,8 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 
 ## 9. Improvement roadmap (post-MVP, pick by results)
 
-1. Embedding seed channel + RRF (covers vocabulary-gap tasks where BM25 seeds fail)
+1. Embedding seed channel + RRF (covers vocabulary-gap tasks where BM25 seeds fail) — in tree as
+   opt-in `jp:embed-seeds`; not measured, not the shipped default.
 2. LLM rerank ablation row
 3. Incremental indexing (file-watcher, re-resolve dirty modules)
 4. Java-first projects via IntelliJ Java PSI
