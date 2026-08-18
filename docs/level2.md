@@ -4,8 +4,14 @@ Level 1 asks whether a pack contains the declarations a fix touched. Level 2 ask
 reader actually cares about: **does a better pack produce a better patch?** One model, one prompt,
 one shot, and the suite's own tests decide.
 
-Results are not in this document yet. Everything below is fixed before any model runs, which is the
-point of writing it down first.
+Results are not in this document as a score. A first detekt scoring run started 17 Aug 2026
+(`composer-2.5`, 4k, bodies-only) and **aborted** when the Cursor API returned `Network request
+failed`. Two tasks completed all four arms; a third died on `none` as `NO_ANSWER`. The ledger is
+local (`~/.jetpacker-l2/level2.tsv`) and is not copied here: two tasks cannot separate arms, and
+on both of them the no-context floor already resolved, so this slice cannot say retrieval did
+anything. Resume is safe — already-scored `(task, arm)` pairs are skipped.
+
+Everything below was fixed before that run, which is the point of writing it down first.
 
 ## The judge is not ours
 

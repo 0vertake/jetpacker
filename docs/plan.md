@@ -222,12 +222,30 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 
 ---
 
-## 10. CV bullets (draft now, refine with real numbers)
+## 10. CV bullets (filled from Level 1 only)
 
-> **Context Packer for Coding Agents** — Kotlin engine that packs token-budgeted task context from compiler-resolved code structure (Kotlin Analysis API): seeds → typed code graph → personalized PageRank → density knapsack. On Kotlin-SWE-bench (105 tasks), improved gold-symbol Recall@4k by **X%** over chunk-RAG and **Y%** over a tree-sitter/PageRank baseline; **Z%** fewer tokens per resolved task with the same model. CLI + MCP server; fixture-tested.
+Do not quote a Kotlin Benchmark *score*, a patch-resolved %, or “105 tasks”. 97 of 105 issue
+tasks run; Level 2 has no complete table. Numbers below are Recall@4k of gold *declarations*
+(issue text), `jp:default` unless named, from [`docs/results.md`](results.md).
 
-One-liner variant:
-> Built a PSI-aware context packer + published benchmark showing compiler-grade retrieval beats chunk RAG and tree-sitter maps for Kotlin agent tasks.
+> **Jetpacker** — Kotlin engine that builds token-budgeted context packs for coding agents from
+> compiler-resolved structure (Kotlin Analysis API / PSI): seeds → typed call graph → personalized
+> PageRank → density knapsack. Shipped as `packer pack` and an MCP server (`packer serve`).
+> Benchmarked on 97 / 105 tasks of JetBrains’ Kotlin Benchmark plus 60 mined detekt commits,
+> against BM25, 40-line chunk RAG (BM25 and `all-MiniLM-L6-v2`), and an Aider-style repo map.
+> At 4k tokens, whole-declaration retrieval more than doubles chunk-RAG on detekt (70.8% vs 34.1%
+> gold-symbol recall) and leads by a wide margin on ktlint (38.5% vs 5.8%) and ort (51.8% vs 12.4%).
+> Compiler-resolved call edges beat name-matched edges by 1–18 points. Not universal: the engine
+> loses to BM25 on TeXiFy, and to embeddings on dataframe where only 38% of calls resolve.
+
+One-liner:
+
+> Built a compiler-grade Kotlin context packer (CLI + MCP) and a published retrieval benchmark on
+> Kotlin-SWE-bench showing whole-declaration packs beat chunk RAG on gold-symbol recall@4k on the
+> main suites, with named loss cases, not a patch-success score.
+
+What not to write: “beats RAG”, “SWE-bench score”, “+X% resolved tasks”, “105 tasks”, “Level 2
+shows a better pack produces a better patch”.
 
 ---
 
