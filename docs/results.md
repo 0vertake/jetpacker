@@ -288,8 +288,8 @@ and **nDCG** over the pack's own order. At 4k:
 | `bm25:full.00` | 63.9% | 64.7% | 0.294 | 31.5% | 28.8% | 0.146 |
 | `names-only` | 59.7% | 58.8% | 0.240 | 34.8% | 32.9% | 0.122 |
 | `seeds-only` | 57.7% | 58.6% | 0.232 | 25.4% | 23.7% | 0.113 |
-| `chunk-bm25` | 34.1% | 34.0% | 0.176 | 3.4% | 3.1% | 0.034 |
-| `chunk-embed` | 14.0% | 12.5% | 0.081 | — | — | — |
+| `chunk-bm25` | 34.1% | 34.0% | 0.176 | 5.8% | 5.0% | 0.054 |
+| `chunk-embed` | 14.0% | 12.5% | 0.081 | 0.7% | 0.6% | 0.010 |
 
 **Half credit for callers changes nothing.** Every arm moves by a point or two and no ordering
 changes. It does show a small difference between the repositories: on detekt the packs tend to hold
