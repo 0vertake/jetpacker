@@ -12,7 +12,7 @@ Usage: packer pack --repo <dir> --task <file|-> [--budget 4000]
        packer serve --repo <dir>
 
   pack   print one pack and exit
-  serve  an MCP server on stdio, exposing get_context_pack(task, budget)
+  serve  an MCP server on stdio: get_context_pack and explain_context_pack
 
   --repo    a Gradle project to index
   --task    task description; - reads stdin

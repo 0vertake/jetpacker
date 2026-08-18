@@ -43,15 +43,18 @@ class McpTest {
     }
 
     @Test
-    fun `advertises the tool with its required argument`() {
-        val tool = call("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")["tools"]!!.jsonArray.single().jsonObject
-
-        assertEquals("get_context_pack", tool.string("name"))
+    fun `advertises both tools with the same required argument`() {
+        val listed = call("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")["tools"]!!.jsonArray
         assertEquals(
-            listOf("task"),
-            tool["inputSchema"]!!.jsonObject["required"]!!.jsonArray.map { it.jsonPrimitive.content },
-            "budget has a default, so requiring it would make the tool harder to call than it is",
+            listOf("get_context_pack", "explain_context_pack"),
+            listed.map { it.jsonObject.string("name") },
         )
+        for (tool in listed) {
+            assertEquals(
+                listOf("task"),
+                tool.jsonObject["inputSchema"]!!.jsonObject["required"]!!.jsonArray.map { it.jsonPrimitive.content },
+            )
+        }
     }
 
     @Test
@@ -83,6 +86,26 @@ class McpTest {
         )
 
         assertEquals(Retriever.DEFAULT_BUDGET, packer.asked?.second)
+    }
+
+    @Test
+    fun `explains why each packed declaration is there, without the bodies`() {
+        val packer = Recording()
+
+        val result = call(
+            """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"explain_context_pack",""" +
+                """"arguments":{"task":"fix the ranker","budget":1500}}}""",
+            packer,
+        )
+
+        assertEquals("fix the ranker" to 1500, packer.asked)
+        assertEquals(false, result["isError"]!!.jsonPrimitive.boolean)
+        val body = Json.parseToJsonElement(result.text()).jsonObject
+        val item = body["items"]!!.jsonArray.single().jsonObject
+        assertEquals("fixture.Greeter", item.string("id"))
+        assertEquals("seed", item.string("why"))
+        assertEquals("src/Greeter.kt", item.string("file"))
+        assertTrue("class Greeter" !in result.text(), "the code belongs on get_context_pack, got ${result.text()}")
     }
 
     @Test

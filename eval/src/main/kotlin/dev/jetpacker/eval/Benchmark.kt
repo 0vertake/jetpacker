@@ -4,12 +4,14 @@ import dev.jetpacker.baselines.Bm25Retriever
 import dev.jetpacker.baselines.ChunkRetriever
 import dev.jetpacker.baselines.Embedder
 import dev.jetpacker.baselines.EmbeddingChunkRetriever
+import dev.jetpacker.baselines.EmbeddingSeeds
 import dev.jetpacker.baselines.FileDumpRetriever
 import dev.jetpacker.baselines.RepoMapRetriever
 import dev.jetpacker.baselines.nameMatchedIndex
 import dev.jetpacker.core.Jetpacker
 import dev.jetpacker.core.Retriever
 import dev.jetpacker.core.rank.EdgeWeights
+import dev.jetpacker.core.seed.DenseSeeds
 import dev.jetpacker.core.seed.SeedFinder
 import java.nio.file.Path
 import kotlin.system.exitProcess
@@ -126,6 +128,10 @@ private fun retrievers(snapshot: Snapshot, embedder: Embedder?): List<Retriever>
     engine(snapshot, "default", fullTierShare = 0.15),
     engine(snapshot, "all-stubs"),
     engine(snapshot, "seed-tests", fullTierShare = 0.15, testPenalty = 1.0),
+    // Same engine, seeds also ranked by MiniLM. Off with the rest of the embedding arms.
+    embedder?.let {
+        engine(snapshot, "embed-seeds", fullTierShare = 0.15, dense = EmbeddingSeeds(snapshot.index, it))
+    },
     // Resolution off: the same engine over call edges a parser could have produced (§5). Built per
     // task and not cached: every task is a different checkout, so a cache across them only holds
     // dead indexes — each one millions of ambiguous edges — until the run is thrashing the GC.
@@ -166,6 +172,7 @@ private fun engine(
     seeds: Int = Jetpacker.DEFAULT_SEEDS,
     testPenalty: Double = SeedFinder.DEFAULT_TEST_PENALTY,
     testShare: Double = 0.1,
+    dense: DenseSeeds? = null,
 ) = Jetpacker(
     snapshot.root,
     snapshot.index,
@@ -175,6 +182,7 @@ private fun engine(
     testShare = testShare,
     seeds = seeds,
     testPenalty = testPenalty,
+    dense = dense,
 )
 
 private fun report(results: Map<String, List<Score>>, skipped: Int) {
