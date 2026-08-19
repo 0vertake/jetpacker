@@ -52,6 +52,33 @@ class PatcherTest {
     }
 
     @Test
+    fun `the helper chdirs into the empty workspace before starting the agent`() {
+        val body = object {}.javaClass.getResourceAsStream("/cursor_patch.py")!!.bufferedReader().readText()
+        assertTrue("os.chdir(empty)" in body, "the SDK bridge uses process cwd, not local.cwd")
+        assertTrue("setting_sources=[]" in body, "omitting the field is inline-only today; pin it so a default of all cannot leak rules")
+    }
+
+    @Test
+    fun `starts the helper in an empty directory, not this checkout`() {
+        val patcher = CursorPatcher(
+            Path.of("/usr/bin/python3"),
+            helper(
+                """
+import os, sys
+if os.path.exists("src") or os.path.exists("build.gradle.kts"):
+    print("helper cwd still has the checkout", file=sys.stderr)
+    sys.exit(1)
+print('''```diff
+$DIFF
+```''')
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals(DIFF + "\n", patcher.patch("fix it", pack = null))
+    }
+
+    @Test
     fun `passes a reply back through the helper process`() {
         val patcher = CursorPatcher(Path.of("/usr/bin/python3"), helper("print('''```diff\n$DIFF\n```''')"))
 
