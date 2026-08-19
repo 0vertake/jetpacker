@@ -1,6 +1,7 @@
 package dev.jetpacker.cli
 
 import dev.jetpacker.core.Retriever
+import dev.jetpacker.core.index.CompileError
 import dev.jetpacker.core.index.Symbol
 import dev.jetpacker.core.index.SymbolKind
 import dev.jetpacker.core.pack.Fidelity
@@ -123,6 +124,26 @@ class McpTest {
         assertEquals("seed", item.string("why"))
         assertEquals("src/Greeter.kt", item.string("file"))
         assertTrue("class Greeter" !in result.text(), "the code belongs on get_context_pack, got ${result.text()}")
+        assertEquals(0, body["errors"]!!.jsonArray.size)
+    }
+
+    @Test
+    fun `explains diagnostics in packed files without repeating the code`() {
+        val packer = Recording(
+            errors = listOf(CompileError("src/Greeter.kt", 2, "unresolved call `missing`")),
+        )
+
+        val result = call(
+            """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"explain_context_pack",""" +
+                """"arguments":{"task":"fix Greeter"}}}""",
+            packer,
+        )
+
+        val error = Json.parseToJsonElement(result.text()).jsonObject["errors"]!!.jsonArray.single().jsonObject
+        assertEquals("src/Greeter.kt", error.string("file"))
+        assertEquals(2, error["line"]!!.jsonPrimitive.int)
+        assertEquals("unresolved call `missing`", error.string("message"))
+        assertTrue("class Greeter" !in result.text(), "the code belongs on get_context_pack, got ${result.text()}")
     }
 
     @Test
@@ -220,7 +241,9 @@ class McpTest {
     }
 
     /** Answers every task with the same one-item pack, and remembers what it was asked for. */
-    private class Recording : Retriever {
+    private class Recording(
+        private val errors: List<CompileError> = emptyList(),
+    ) : Retriever {
         override val name = "recording"
         var asked: Pair<String, Int>? = null
 
@@ -239,7 +262,7 @@ class McpTest {
                 tokens = 4,
                 isTest = false,
             )
-            return Pack(listOf(PackItem(symbol, Fidelity.FULL, "seed", "class Greeter", 4)), 4, budget)
+            return Pack(listOf(PackItem(symbol, Fidelity.FULL, "seed", "class Greeter", 4)), 4, budget, errors = errors)
         }
     }
 
