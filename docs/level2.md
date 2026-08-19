@@ -135,6 +135,21 @@ SWE-bench scores.
   -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=ktlint
 ```
 
+Gradle-free resume (same classpath as overnight runs), after `installDist` synced
+to `~/.jetpacker-l2/lib/`:
+
+```bash
+screen -dmS jetpacker-l2 bash -c 'caffeinate -i ~/.jetpacker-l2/resume.sh >> ~/.jetpacker-l2/level2.log 2>&1'
+
+# ktlint after detekt — separate ledger, needs /tmp/ktlint cloned first
+git clone https://github.com/pinterest/ktlint /tmp/ktlint
+screen -dmS jetpacker-l2-ktlint bash -c 'caffeinate -i scripts/resume-ktlint-l2.sh >> ~/.jetpacker-l2/level2-ktlint.log 2>&1'
+
+# snapshot the ledger as markdown
+scripts/level2-report.sh
+scripts/level2-report.sh ~/.jetpacker-l2-ktlint/level2.tsv
+```
+
 Both outlive a shell; run them under `screen`, never concurrently with each other or with a Gradle
 build of this repository. The runner skips `(task, arm)` pairs already in the ledger, so resume
 after a Cursor API blip is safe. Transient SDK failures score as `NO_ANSWER` rather than aborting
