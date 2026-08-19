@@ -4,6 +4,7 @@ import com.knuddels.jtokkit.Encodings
 import com.knuddels.jtokkit.api.EncodingType
 import dev.jetpacker.core.index.CodeIndex
 import dev.jetpacker.core.index.EdgeKind
+import dev.jetpacker.core.index.ResolutionCoverage
 import dev.jetpacker.core.index.Symbol
 import dev.jetpacker.core.rank.Ranked
 import java.nio.file.Path
@@ -22,7 +23,12 @@ data class PackItem(
 )
 
 /** The finished pack: what fit, and what it cost. */
-data class Pack(val items: List<PackItem>, val tokens: Int, val budget: Int)
+data class Pack(
+    val items: List<PackItem>,
+    val tokens: Int,
+    val budget: Int,
+    val coverage: ResolutionCoverage = ResolutionCoverage(0, 0, 0),
+)
 
 /**
  * Fills a token budget with the highest-value declarations.
@@ -53,7 +59,7 @@ class Packer(
     fun pack(ranked: List<Ranked>): Pack {
         val candidates = ranked.take(CANDIDATES)
         // Section titles and the summary line are also tokens the model pays for.
-        val overhead = encoding.countTokens(header(budget, budget, candidates.size)) + SECTION_OVERHEAD
+        val overhead = encoding.countTokens(header(budget, budget, candidates.size, index.coverage)) + SECTION_OVERHEAD
         val rankOf = candidates.withIndex().associate { (at, candidate) -> candidate.symbol.id to at }
         val selection = Selection()
 
@@ -67,7 +73,7 @@ class Packer(
         val items = selection.taken.values.sortedWith(
             compareBy<PackItem> { it.fidelity }.thenBy { rankOf[it.symbol.id] ?: Int.MAX_VALUE },
         )
-        return Pack(items, selection.spent + overhead, budget)
+        return Pack(items, selection.spent + overhead, budget, index.coverage)
     }
 
     private inner class Selection {

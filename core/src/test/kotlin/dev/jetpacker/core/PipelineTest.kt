@@ -39,6 +39,16 @@ class PipelineTest {
     }
 
     @Test
+    fun `the pack names how much of the repository resolved`() {
+        val markdown = packer().pack("`GreetingService` is broken").toMarkdown()
+
+        assertTrue(
+            Regex("""\d+% of \d+ calls resolved""").containsMatchIn(markdown),
+            "coverage is the indexer's quality line, got:\n$markdown",
+        )
+    }
+
+    @Test
     fun `explains why every item is present`() {
         val pack = packer().pack("`GreetingService` is broken")
 
