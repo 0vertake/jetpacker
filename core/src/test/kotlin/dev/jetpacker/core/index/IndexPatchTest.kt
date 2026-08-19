@@ -79,12 +79,33 @@ class IndexPatchTest {
         assertEquals(emptySet(), IndexPatch.referrersToAdded(base, setOf("Rule.kt"), fresh))
     }
 
+    @Test
+    fun `keeps coverage of files the patch did not touch`() {
+        val base = index(
+            symbols = listOf(symbol("A.a", "A.kt"), symbol("B.b", "B.kt")),
+            coverageByFile = mapOf(
+                "A.kt" to ResolutionCoverage(10, 8, 8),
+                "B.kt" to ResolutionCoverage(4, 4, 4),
+            ),
+        )
+        val fresh = index(
+            symbols = listOf(symbol("B.b", "B.kt")),
+            coverageByFile = mapOf("B.kt" to ResolutionCoverage(5, 5, 5)),
+        )
+
+        assertEquals(
+            ResolutionCoverage(15, 13, 13),
+            IndexPatch.merge(base, setOf("B.kt"), fresh).coverage,
+        )
+    }
+
     private companion object {
         fun index(
             symbols: List<Symbol>,
             edges: List<Edge> = emptyList(),
             errors: List<CompileError> = emptyList(),
-        ) = CodeIndex(symbols, edges, ResolutionCoverage(0, 0, 0), errors)
+            coverageByFile: Map<String, ResolutionCoverage> = emptyMap(),
+        ) = CodeIndex(symbols, edges, ResolutionCoverage(0, 0, 0), errors, coverageByFile)
 
         fun symbol(id: String, file: String) = Symbol(
             id = id,
