@@ -28,6 +28,9 @@ import kotlin.time.TimeSource
  *     ./gradlew :eval:level2 -Pjetpacker.repo=/tmp/detekt \
  *       -Pjetpacker.harbor=/tmp/kotlin-swe-bench/tasks -Pjetpacker.harbor.repo=detekt
  *
+ * Body share defaults to 1.0 (all bodies). For the shipped 15% share:
+ * `-Djetpacker.fullTierShare=0.15 -Djetpacker.l2=~/.jetpacker-l2-bodies15`
+ *
  * Every arm spends its whole budget on bodies. At Level 1 a signature is enough to say retrieval
  * found the right declaration; here the model has to edit the thing, and no one can edit a
  * signature. That makes this a different question from the Level-1 tables, not a rerun of them.
@@ -43,6 +46,8 @@ fun main() {
     val harbor = Path.of(System.getProperty("jetpacker.harbor") ?: error("set -Djetpacker.harbor=<dir>"))
     val repository = System.getProperty("jetpacker.harbor.repo") ?: repo.fileName.toString()
     val budget = System.getProperty("jetpacker.budgets")?.toInt() ?: 4000
+    val fullTierShare = System.getProperty("jetpacker.fullTierShare")?.toDouble() ?: 1.0
+    val testShare = System.getProperty("jetpacker.testShare")?.toDouble() ?: 0.1
     val cache = Path.of(System.getProperty("jetpacker.cache") ?: "${System.getProperty("user.home")}/.jetpacker")
     val workspace = Path.of(System.getProperty("jetpacker.l2") ?: "${System.getProperty("user.home")}/.jetpacker-l2")
         .also { it.createDirectories() }
@@ -77,7 +82,7 @@ fun main() {
             continue
         }
 
-        for ((name, retriever) in arms(snapshot)) {
+        for ((name, retriever) in arms(snapshot, fullTierShare, testShare)) {
             if (task.id to name in done) continue
             val started = TimeSource.Monotonic.markNow()
 
@@ -111,19 +116,20 @@ private const val SILENT_LIMIT = 4
  * The comparison. `none` is the floor — what the model does from the issue alone — and without it a
  * resolved-percentage says nothing about whether any of this retrieval was worth doing.
  */
-private fun arms(snapshot: Snapshot): List<Pair<String, Retriever?>> = listOf(
-    "none" to null,
-    "chunk-bm25" to ChunkRetriever(snapshot.index, snapshot.root),
-    "bm25" to Bm25Retriever(snapshot.index, snapshot.root, "bm25", fullTierShare = 1.0),
-    "jp" to Jetpacker(
-        snapshot.root,
-        snapshot.index,
-        EdgeWeights(sameFile = 1.0),
-        "jp",
-        fullTierShare = 1.0,
-        testShare = 0.1,
-    ),
-)
+private fun arms(snapshot: Snapshot, fullTierShare: Double, testShare: Double): List<Pair<String, Retriever?>> =
+    listOf(
+        "none" to null,
+        "chunk-bm25" to ChunkRetriever(snapshot.index, snapshot.root),
+        "bm25" to Bm25Retriever(snapshot.index, snapshot.root, "bm25", fullTierShare = fullTierShare),
+        "jp" to Jetpacker(
+            snapshot.root,
+            snapshot.index,
+            EdgeWeights(sameFile = 1.0),
+            "jp",
+            fullTierShare = fullTierShare,
+            testShare = testShare,
+        ),
+    )
 
 private fun certified(record: Path): Set<String> {
     if (!record.exists()) return emptySet()

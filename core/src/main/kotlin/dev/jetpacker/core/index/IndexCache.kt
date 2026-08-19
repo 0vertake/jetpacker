@@ -109,7 +109,7 @@ object IndexCache {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private const val SCHEMA = 3
+    private const val SCHEMA = 4
 }
 
 @Serializable
