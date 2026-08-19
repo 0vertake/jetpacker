@@ -38,6 +38,8 @@ object IndexPatch {
                 .distinct()
                 .sortedWith(compareBy({ it.kind }, { it.from }, { it.to })),
             coverage = fresh.coverage,
+            errors = (base.errors.filterNot { it.file in dirty } + fresh.errors + repaired?.errors.orEmpty())
+                .sortedWith(compareBy({ it.file }, { it.line }, { it.message })),
         )
     }
 

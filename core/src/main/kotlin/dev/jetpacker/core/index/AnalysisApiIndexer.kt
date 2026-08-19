@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
 import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+import com.intellij.psi.PsiErrorElement
 import java.nio.file.Path
 
 /**
@@ -127,6 +128,7 @@ class AnalysisApiIndexer(
     private fun build(only: Set<String>?): CodeIndex {
         val symbols = mutableListOf<Symbol>()
         val edges = mutableSetOf<Edge>()
+        val errors = mutableListOf<CompileError>()
         var callSites = 0
         var resolvedCallees = 0
         var attributedToCaller = 0
@@ -138,6 +140,15 @@ class AnalysisApiIndexer(
             if (only != null && path !in only) continue
             val isTest = testRoots.any(absolute::startsWith)
             val declarations = file.collectDescendantsOfType<KtDeclaration> { it.isIndexable() }
+            var noted = 0
+            fun note(element: PsiElement, message: String) {
+                if (noted >= ERRORS_PER_FILE) return
+                noted++
+                errors += CompileError(path, lineOf(file, element), message)
+            }
+            for (syntax in file.collectDescendantsOfType<PsiErrorElement>()) {
+                note(syntax, "parse error")
+            }
 
             // The Analysis API is experimental and throws rather than returning null on constructs
             // it cannot resolve: one dataframe DSL call takes it through a branch of overload
@@ -165,7 +176,11 @@ class AnalysisApiIndexer(
                         callSites++
                         val callee = runCatching {
                             call.resolveToCall()?.successfulFunctionCallOrNull()?.symbol?.let { symbolId(it) }
-                        }.getOrNull() ?: continue
+                        }.getOrNull()
+                        if (callee == null) {
+                            note(call, "unresolved call `${callText(call)}`")
+                            continue
+                        }
                         resolvedCallees++
                         val caller = enclosingDeclarationId(call, idOf) ?: continue
                         attributedToCaller++
@@ -175,6 +190,7 @@ class AnalysisApiIndexer(
                 }
             }.getOrElse {
                 failedFiles++
+                errors += CompileError(path, 1, "file unanalyzable")
                 null
             } ?: continue
 
@@ -188,6 +204,7 @@ class AnalysisApiIndexer(
             symbols = symbols.sortedWith(compareBy({ it.id }, { it.file }, { it.startLine })),
             edges = edges.sortedWith(compareBy({ it.kind }, { it.from }, { it.to })),
             coverage = ResolutionCoverage(callSites, resolvedCallees, attributedToCaller, failedFiles),
+            errors = errors.sortedWith(compareBy({ it.file }, { it.line }, { it.message })),
         )
     }
 
@@ -356,6 +373,17 @@ class AnalysisApiIndexer(
         return null
     }
 
+    private fun lineOf(file: KtFile, element: PsiElement): Int {
+        val document = file.viewProvider.document ?: return 1
+        return document.getLineNumber(element.textRange.startOffset) + 1
+    }
+
+    private fun callText(call: KtCallExpression): String =
+        (call.calleeExpression?.text ?: call.text)
+            .lineSequence()
+            .joinToString(" ") { it.trim() }
+            .take(40)
+
     private fun relativePath(path: Path): String {
         val absolute = runCatching { path.toRealPath() }.getOrDefault(path)
         return (root?.takeIf { absolute.startsWith(it) }?.relativize(absolute) ?: absolute)
@@ -370,5 +398,6 @@ class AnalysisApiIndexer(
 
     private companion object {
         const val UNRESOLVED = "?"
+        const val ERRORS_PER_FILE = 20
     }
 }

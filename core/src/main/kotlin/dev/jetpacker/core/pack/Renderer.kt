@@ -1,5 +1,6 @@
 package dev.jetpacker.core.pack
 
+import dev.jetpacker.core.index.CompileError
 import dev.jetpacker.core.index.ResolutionCoverage
 import dev.jetpacker.core.index.Symbol
 
@@ -16,6 +17,7 @@ fun Pack.toMarkdown(): String = buildString {
     section("Definitions", items.filter { it.fidelity == Fidelity.FULL && !it.symbol.isTest })
     section("Related signatures", items.filter { it.fidelity == Fidelity.STUB && !it.symbol.isTest })
     section("Tests likely affected", items.filter { it.symbol.isTest })
+    append(diagnostics(errors))
 }.trimEnd() + "\n"
 
 internal fun header(
@@ -29,6 +31,15 @@ internal fun header(
         append(' ').append(coverage.asPackLine()).append('.')
     }
     append('\n')
+}
+
+internal fun diagnostics(errors: List<CompileError>): String {
+    if (errors.isEmpty()) return ""
+    return buildString {
+        appendLine()
+        appendLine("## Diagnostics")
+        for (error in errors) appendLine("- `${error.file}:${error.line}`: ${error.message}")
+    }
 }
 
 /**
