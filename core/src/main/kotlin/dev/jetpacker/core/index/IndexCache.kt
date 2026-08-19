@@ -48,9 +48,10 @@ object IndexCache {
                 !IndexPatch.worthReusing(changed.size, files.size) -> indexer.index()
                 else -> {
                     val fresh = indexer.index(changed)
-                    val referrers = IndexPatch.referrersToRemoved(previous.index, changed, fresh.byId.keys)
-                    val repaired = if (referrers.isEmpty()) null else indexer.index(referrers)
-                    IndexPatch.merge(previous.index, changed + referrers, fresh, repaired)
+                    val extra = IndexPatch.referrersToRemoved(previous.index, changed, fresh.byId.keys) +
+                        IndexPatch.referrersToAdded(previous.index, changed, fresh)
+                    val repaired = if (extra.isEmpty()) null else indexer.index(extra)
+                    IndexPatch.merge(previous.index, changed + extra, fresh, repaired)
                 }
             }
         }

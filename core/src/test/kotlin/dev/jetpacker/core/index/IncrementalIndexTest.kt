@@ -81,6 +81,21 @@ class IncrementalIndexTest {
         assertEquals(full.edges, patched.edges)
     }
 
+    @Test
+    fun `resolves a call that was missing until the callee was added`() {
+        val root = repo("fun used() = 1")
+        root.resolve("User.kt").writeText("package inc\nfun user() = created()\n")
+        val cache = createTempDirectory("jetpacker-cache")
+        IndexCache.loadOrIndex(root, listOf(root), cacheDir = cache)
+
+        root.resolve("Created.kt").writeText("package inc\nfun created() = 1\n")
+        val patched = IndexCache.loadOrIndex(root, listOf(root), cacheDir = cache)
+        val full = AnalysisApiIndexer(listOf(root), repoRoot = root).use { it.index() }
+
+        assertEquals(full.symbols, patched.symbols)
+        assertEquals(full.edges, patched.edges)
+    }
+
     private companion object {
         fun repo(usedBody: String) = createTempDirectory("jetpacker-inc").also { root ->
             root.resolve("Used.kt").writeText("package inc\n$usedBody\n")
