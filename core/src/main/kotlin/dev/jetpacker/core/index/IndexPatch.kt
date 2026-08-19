@@ -8,8 +8,8 @@ package dev.jetpacker.core.index
  * that pass one just proved no longer exists, since their edges now name an identifier nothing
  * declares.
  *
- * What neither pass can see is a call that did not resolve before and now resolves, to a
- * declaration a changed file has just added. Those edges stay missing until the next full index.
+ * A third pass re-analyzes files that had an unresolved call whose *name* a changed file just
+ * declared. Overloads of a name that already existed still wait for a full index.
  */
 object IndexPatch {
     /** Above this share of indexed files, patching a cached index stops being worth it. */
@@ -25,6 +25,19 @@ object IndexPatch {
         val fileOf = base.symbols.associate { it.id to it.file }
         val removed = base.symbols.filter { it.file in changed }.map { it.id }.toSet() - survivors
         return base.edges.filter { it.to in removed }.mapNotNull { fileOf[it.from] }.toSet() - changed
+    }
+
+    /**
+     * Unchanged files that called a name nothing declared, if a changed file has just declared it.
+     */
+    fun referrersToAdded(base: CodeIndex, changed: Set<String>, fresh: CodeIndex): Set<String> {
+        val added = fresh.symbols.map { it.name }.toSet() - base.symbols.map { it.name }.toSet()
+        if (added.isEmpty()) return emptySet()
+        return base.errors.mapNotNull { error ->
+            if (error.file in changed) return@mapNotNull null
+            val name = unresolvedCallee(error.message) ?: return@mapNotNull null
+            error.file.takeIf { name in added }
+        }.toSet()
     }
 
     fun merge(base: CodeIndex, dirty: Set<String>, fresh: CodeIndex, repaired: CodeIndex? = null): CodeIndex {
@@ -45,4 +58,12 @@ object IndexPatch {
 
     fun worthReusing(changed: Int, indexedFiles: Int): Boolean =
         indexedFiles > 0 && changed <= indexedFiles * REUSE_LIMIT
+
+    private fun unresolvedCallee(message: String): String? {
+        if (!message.startsWith(UNRESOLVED_PREFIX) || !message.endsWith("`")) return null
+        val text = message.removePrefix(UNRESOLVED_PREFIX).removeSuffix("`")
+        return text.substringBefore('(').substringAfterLast('.').trim().takeIf { it.isNotEmpty() }
+    }
+
+    private const val UNRESOLVED_PREFIX = "unresolved call `"
 }
