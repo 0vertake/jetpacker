@@ -20,6 +20,7 @@ application {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":baselines"))
     // The IntelliJ platform pulls in slf4j-api, and with no binding every run opens with three
     // lines of SLF4J complaint. A CLI has stderr for its own errors; the platform's logging is
     // not the user's business.
