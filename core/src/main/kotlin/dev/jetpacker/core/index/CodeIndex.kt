@@ -70,6 +70,16 @@ data class ResolutionCoverage(
     val callerRate: Double get() = ratio(attributedToCaller)
 
     private fun ratio(count: Int): Double = if (callSites == 0) 1.0 else count.toDouble() / callSites
+
+    /** One line for a pack header: how much of the graph the indexer actually understood. */
+    fun asPackLine(): String {
+        val resolved = if (callSites == 0) {
+            "no calls indexed"
+        } else {
+            "${(calleeRate * 100).toInt()}% of $callSites calls resolved"
+        }
+        return if (failedFiles == 0) resolved else "$resolved, $failedFiles files unanalyzable"
+    }
 }
 
 /**
