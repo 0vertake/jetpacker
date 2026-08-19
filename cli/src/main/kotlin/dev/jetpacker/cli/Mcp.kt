@@ -145,7 +145,7 @@ private fun withPack(packer: Retriever, arguments: JsonObject?, render: (Pack) -
     return text(render(pack), isError = false)
 }
 
-/** Ids, paths and `why` — the briefing without the bodies, so an agent can audit the pack. */
+/** Ids, paths, `why`, and diagnostics — the briefing without the bodies. */
 private fun explained(pack: Pack) = buildJsonObject {
     put("tokens", pack.tokens)
     put("budget", pack.budget)
@@ -160,6 +160,17 @@ private fun explained(pack: Pack) = buildJsonObject {
                     put("why", item.why)
                     put("fidelity", item.fidelity.name.lowercase())
                     put("tokens", item.tokens)
+                },
+            )
+        }
+    }
+    putJsonArray("errors") {
+        for (error in pack.errors) {
+            add(
+                buildJsonObject {
+                    put("file", error.file)
+                    put("line", error.line)
+                    put("message", error.message)
                 },
             )
         }
@@ -211,7 +222,8 @@ private val PACK_TOOL = tool(
 private val EXPLAIN_TOOL = tool(
     EXPLAIN_TOOL_NAME,
     "Same pack as get_context_pack, but as a list of declarations with why each is there " +
-        "(seed, caller-of, impl-of, test-of) instead of the code. Use this to audit a pack.",
+        "(seed, caller-of, impl-of, test-of) instead of the code, plus any diagnostics in " +
+        "those files. Use this to audit a pack.",
 )
 
 private val TOOLS = listOf(PACK_TOOL, EXPLAIN_TOOL)
