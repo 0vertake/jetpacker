@@ -209,17 +209,20 @@ calls — overload resolution reaches a state it asserts cannot happen — and t
 aborted the entire index. Resolution failures are now caught where they happen, so the call is
 counted as unresolved and the other 73,000 in the repository still are.
 
-That is also the caveat on the whole table. Only **37.6%** of dataframe's call sites resolve to a
-declaration (27,571 / 73,271 on the commit that published the figure), against 96% on detekt.
-`failedFiles` is 0: the misses are unsuccessful calls, not skipped files. The measured cause is
-not the compiler plugin in isolation. dataframe's `core` keeps a second copy of almost the whole
-API under `core/generated-sources/` — a KDoc-processed tree the project itself excludes from the
-IDE (`idea { excludeDirs }`). The indexer ignores that exclusion and flattens every IDEA source
-root into one Analysis API module, so 7,359 symbol ids exist in both trees and 7,564 ids in the
-index are not unique. Duplicate FQNs in one module are what overload resolution is asserting
-cannot happen. Dropping the duplicate tree has not been re-measured, so this does not claim the
-rate would become detekt's; it names why the graph is thin. The gap over BM25 at 8k is what
-expansion manages on a third of the edges.
+That is also the caveat on the whole table. Re-measured Aug 2026 after honouring IDEA
+`excludeDirs` (PR #28): headline recall is unchanged at every budget in the table above, and
+call-site resolution is still **~36%** (was 37.6% on the commit that first published the figure)
+against 96% on detekt. `failedFiles` remains 0. Dropping the KDoc duplicate tree under
+`core/generated-sources/` fixed the duplicate-FQN indexing problem — the index now holds ~16k
+symbols instead of thousands of colliding ids — but did not materially improve resolution or recall.
+
+What the re-measure did change is the ablation story. `names-only` — the same declarations with
+call edges degraded to bare-name matching — reaches **39.2%** at 4k where `jp:default` reaches
+17.1%, and `-calls` reaches 40.2%. On this corpus, resolved-graph expansion is not merely neutral;
+it actively misleads PageRank away from the gold neighbourhood. That is consistent with a DSL whose
+issues describe behaviour in prose while the fix sits in generated-looking API surface the graph
+connects incorrectly. The gap over BM25 at 8k is what expansion manages when it does not walk down
+the wrong resolved edges.
 
 ### A fifth: TeXiFy, where the engine loses
 
