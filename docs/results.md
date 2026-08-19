@@ -328,6 +328,17 @@ signatures grouped by file, so a gold signature can land far down a long section
 concrete thing to fix that the previous metrics could not see. It is left open rather than tuned
 away, because whether pack position matters at all is a Level-2 question.
 
+## Level 2 (patch success, partial)
+
+Level 1 numbers above ask whether the pack *contains* gold declarations. Level 2 asks whether a
+better pack produces a better *patch* — one model, one shot, verifier decides. Method, arms, and
+partial detekt outcomes live in [`docs/level2.md`](level2.md).
+
+As of the latest ledger snapshot, detekt is **in progress** (20 certified tasks, bodies-only 4k).
+Refresh the table with `scripts/update-level2-doc.sh detekt`. ktlint (43 tasks) is queued after
+detekt via `scripts/chain-ktlint-after-detekt.sh`. There is no complete patch-resolved table yet —
+do not quote Level-2 win rates until both repositories finish.
+
 ## Is resolution worth it?
 
 This is the ablation the project exists for (docs/plan.md §5), and it had been missing: `seeds-only`
@@ -380,6 +391,11 @@ recall@budget and its change against the default.
 | containment (class ↔ member) | 64.4 (−6.4) | 75.4 (−5.8) | 32.2 (−6.3) | 49.5 (−1.9) | 51.8 (0.0) | 61.0 (+1.4) |
 | co-location (same file) | 68.4 (−2.4) | 76.2 (−5.0) | 34.5 (−4.0) | 49.6 (−1.8) | 49.0 (−2.8) | 48.6 (**−11.0**) |
 | test code, refused entirely | 72.6 (+1.8) | 77.6 (−3.6) | 38.5 (0.0) | 51.4 (0.0) | 51.8 (0.0) | 59.6 (0.0) |
+
+**§4 edge candidates, first look on dataframe.** `jp:+imports` and `jp:+references` turn on import
+directives and type-reference edges (default off). On dataframe at 4k they reach 13.1% and 17.1%
+against `jp:default`'s 17.1% — neither buys recall on that corpus. A detekt run is still needed
+before they join this table; the arms exist in the harness from Aug 2026.
 
 One task is worth about 2.3 points on ktlint's 43, 3.6 on detekt's 28 and 8.3 on ort's 12, so read
 anything under about 3 points as noise on the first two and under 8 on ort.
