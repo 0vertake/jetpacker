@@ -58,6 +58,23 @@ class McpTest {
     }
 
     @Test
+    fun `asks a fresh packer for each tool call`() {
+        val seen = mutableListOf<Recording>()
+        val server = McpServer {
+            Recording().also { seen += it }
+        }
+        val request = """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_context_pack",""" +
+            """"arguments":{"task":"fix the ranker"}}}"""
+
+        server.respond(request)
+        server.respond(request.replace("\"id\":1", "\"id\":2"))
+
+        assertEquals(2, seen.size)
+        assertEquals("fix the ranker", seen[0].asked?.first)
+        assertEquals("fix the ranker", seen[1].asked?.first)
+    }
+
+    @Test
     fun `packs the task at the requested budget`() {
         val packer = Recording()
 

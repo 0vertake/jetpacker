@@ -4,7 +4,9 @@ import dev.jetpacker.baselines.Embedder
 import dev.jetpacker.baselines.EmbeddingSeeds
 import dev.jetpacker.core.Jetpacker
 import dev.jetpacker.core.Retriever
+import dev.jetpacker.core.index.IndexCache
 import dev.jetpacker.core.pack.toMarkdown
+import dev.jetpacker.core.project.readGradleProject
 import java.nio.file.Path
 import kotlin.io.path.readText
 import kotlin.system.exitProcess
@@ -85,6 +87,38 @@ internal fun jetpacker(repo: Path, embedSeeds: Boolean): Jetpacker {
     if (!embedSeeds) return packer
     System.err.println("ranking seeds with MiniLM ...")
     return Jetpacker(repo, packer.index, dense = EmbeddingSeeds(packer.index, Embedder()))
+}
+
+/**
+ * Rebuilds from [IndexCache] on each call, keeping the same [Jetpacker] when the sources have
+ * not changed. Gradle source roots are read once: an agent editing `.kt` files is the case this
+ * has to be fast for; a new module still needs a server restart.
+ */
+internal fun liveJetpacker(repo: Path, embedSeeds: Boolean): () -> Jetpacker {
+    val project = readGradleProject(repo)
+    val embedder by lazy { Embedder() }
+    var current: Jetpacker? = null
+    return {
+        val index = IndexCache.loadOrIndex(
+            repoRoot = repo,
+            sourceRoots = project.sourceRoots,
+            classpath = project.classpath,
+            testRoots = project.testRoots,
+        )
+        val held = current
+        if (held != null && held.index === index) {
+            held
+        } else {
+            if (held != null) System.err.println("reindexed ${index.symbols.size} declarations")
+            val dense = if (embedSeeds) {
+                if (held == null) System.err.println("ranking seeds with MiniLM ...")
+                EmbeddingSeeds(index, embedder)
+            } else {
+                null
+            }
+            Jetpacker(repo, index, dense = dense).also { current = it }
+        }
+    }
 }
 
 private fun fail(message: String): Nothing {
