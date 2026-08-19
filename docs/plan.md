@@ -181,7 +181,9 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 
 **Phase 1 — Index + seeds (weeks 2–3)**
 - ✅ Indexer: whole declarations with file/line ranges, signature, doc line and token cost; four edge kinds (`contains`, `calls`, `extends`, `overrides`). On detekt: 11,931 symbols and 43,704 edges in ~1 min.
-  - *Deviation from §4, deliberate:* the index is held in memory rather than SQLite, and `imports` / `references-type` edges are not extracted. With resolved calls, `imports` is a coarser view of the same relation, and LocAgent's result is that a small heterogeneous edge set suffices. Both are cheap to add if an ablation shows they pay; adding them first would be guessing.
+  - *Deviation from §4, deliberate:* the index is held in memory rather than SQLite. `imports` and
+    `references-type` edges are extracted but default to zero weight; the ablation harness decides
+    whether they earn a nonzero weight (Aug 2026).
 - Seed finder with RRF. Golden unit tests on a fixture project (fixture-based tests = JetBrains-style signal).
 
 **Phase 2 — Rank + pack + CLI (weeks 3–4)**

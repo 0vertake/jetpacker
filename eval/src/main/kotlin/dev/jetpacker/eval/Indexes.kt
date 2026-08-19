@@ -59,7 +59,7 @@ class Indexes(private val repo: Path, cacheDir: Path) {
     private fun reuse(sha: String): Pair<CodeIndex, Set<String>>? {
         val candidates = indexes.listDirectoryEntries("*.json").map { it.fileName.toString().removeSuffix(".json") }
         val nearest = candidates
-            .map { it to changedFiles(it, sha) }
+            .mapNotNull { base -> changedFiles(base, sha)?.let { base to it } }
             .minByOrNull { (_, changed) -> changed.size }
             ?: return null
 
@@ -104,11 +104,12 @@ class Indexes(private val repo: Path, cacheDir: Path) {
      * `*.kts` counts: build scripts are Kotlin files the indexer reads, and leaving them out of
      * the comparison kept a stale `build-logic` declaration in an otherwise identical index.
      */
-    private fun changedFiles(from: String, to: String): Set<String> =
+    private fun changedFiles(from: String, to: String): Set<String>? = runCatching {
         git(repo, "diff", "--name-only", "--no-renames", from, to, "--", "*.kt", "*.kts")
             .lines()
             .filter { it.isNotBlank() }
             .toSet()
+    }.getOrNull()
 
     private fun checkout(sha: String): Path {
         val target = worktrees.resolve(sha)
