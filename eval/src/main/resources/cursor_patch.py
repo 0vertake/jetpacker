@@ -27,12 +27,15 @@ def main() -> int:
         return 1
 
     with tempfile.TemporaryDirectory(prefix="jetpacker-l2-") as empty:
+        # The SDK launches its bridge with `workspace=os.getcwd()`, not `local.cwd`.
+        # Staying in the harness repo would let the agent search this project.
+        os.chdir(empty)
         result = Agent.prompt(
             prompt,
             AgentOptions(
                 api_key=key,
                 model=os.environ.get("JETPACKER_MODEL", "composer-2.5"),
-                local=LocalAgentOptions(cwd=empty),
+                local=LocalAgentOptions(cwd=empty, setting_sources=[]),
             ),
         )
 
