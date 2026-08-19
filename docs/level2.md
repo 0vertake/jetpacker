@@ -136,7 +136,9 @@ SWE-bench scores.
 ```
 
 Both outlive a shell; run them under `screen`, never concurrently with each other or with a Gradle
-build of this repository. `-Djetpacker.patcher=<script.py>` swaps the model backend, or a stub, which
+build of this repository. The runner skips `(task, arm)` pairs already in the ledger, so resume
+after a Cursor API blip is safe. Transient SDK failures score as `NO_ANSWER` rather than aborting
+the run; four consecutive silences still stop it, which means the backend rather than one pack. `-Djetpacker.patcher=<script.py>` swaps the model backend, or a stub, which
 is how the loop is exercised without spending calls. `-Djetpacker.fullTierShare=0.15` with a separate
 `-Djetpacker.l2=~/.jetpacker-l2-bodies15` runs the shipped body share without overwriting the
 bodies-only ledger. Each arm's context is written to
