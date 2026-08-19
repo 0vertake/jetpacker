@@ -1,6 +1,5 @@
 package dev.jetpacker.cli
 
-import dev.jetpacker.core.Jetpacker
 import dev.jetpacker.core.Retriever
 import dev.jetpacker.core.pack.Pack
 import dev.jetpacker.core.pack.toMarkdown
@@ -30,14 +29,14 @@ import java.nio.file.Path
  * about a minute and an agent asking for a pack should not wait for it. That is the whole reason
  * this exists as a server rather than as repeated `packer pack` invocations.
  */
-fun serve(repo: Path) {
+fun serve(repo: Path, embedSeeds: Boolean = false) {
     // stdout is the protocol, so nothing else may write to it — and the IntelliJ platform behind
     // the indexer does. It is captured here and everything else is pointed at stderr.
     val protocol = PrintWriter(OutputStreamWriter(System.out, StandardCharsets.UTF_8))
     System.setOut(System.err)
 
     System.err.println("indexing $repo ...")
-    val packer = Jetpacker.forRepository(repo)
+    val packer = jetpacker(repo, embedSeeds)
     System.err.println("indexed ${packer.index.symbols.size} declarations; ready")
 
     McpServer(packer).serve(System.`in`.bufferedReader(), protocol)
