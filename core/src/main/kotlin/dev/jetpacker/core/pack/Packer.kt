@@ -3,6 +3,7 @@ package dev.jetpacker.core.pack
 import com.knuddels.jtokkit.Encodings
 import com.knuddels.jtokkit.api.EncodingType
 import dev.jetpacker.core.index.CodeIndex
+import dev.jetpacker.core.index.CompileError
 import dev.jetpacker.core.index.EdgeKind
 import dev.jetpacker.core.index.ResolutionCoverage
 import dev.jetpacker.core.index.Symbol
@@ -28,6 +29,7 @@ data class Pack(
     val tokens: Int,
     val budget: Int,
     val coverage: ResolutionCoverage = ResolutionCoverage(0, 0, 0),
+    val errors: List<CompileError> = emptyList(),
 )
 
 /**
@@ -73,7 +75,20 @@ class Packer(
         val items = selection.taken.values.sortedWith(
             compareBy<PackItem> { it.fidelity }.thenBy { rankOf[it.symbol.id] ?: Int.MAX_VALUE },
         )
-        return Pack(items, selection.spent + overhead, budget, index.coverage)
+        val remaining = budget - (selection.spent + overhead)
+        val errors = fitErrors(index.errors, items.map { it.symbol.file }.toSet(), remaining)
+        return Pack(items, selection.spent + overhead + encoding.countTokens(diagnostics(errors)), budget, index.coverage, errors)
+    }
+
+    private fun fitErrors(all: List<CompileError>, files: Set<String>, remaining: Int): List<CompileError> {
+        if (remaining <= 0) return emptyList()
+        val candidates = all.filter { it.file in files }
+            .sortedWith(compareBy({ it.file }, { it.line }, { it.message }))
+        var keep = candidates
+        while (keep.isNotEmpty() && encoding.countTokens(diagnostics(keep)) > remaining) {
+            keep = keep.dropLast(1)
+        }
+        return keep
     }
 
     private inner class Selection {
