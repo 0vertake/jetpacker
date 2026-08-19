@@ -328,6 +328,17 @@ signatures grouped by file, so a gold signature can land far down a long section
 concrete thing to fix that the previous metrics could not see. It is left open rather than tuned
 away, because whether pack position matters at all is a Level-2 question.
 
+## Level 2 (patch success, partial)
+
+Level 1 numbers above ask whether the pack *contains* gold declarations. Level 2 asks whether a
+better pack produces a better *patch* — one model, one shot, verifier decides. Method, arms, and
+partial detekt outcomes live in [`docs/level2.md`](level2.md).
+
+As of the latest ledger snapshot, detekt is **in progress** (20 certified tasks, bodies-only 4k).
+Refresh the table with `scripts/update-level2-doc.sh detekt`. ktlint (43 tasks) is queued after
+detekt via `scripts/chain-ktlint-after-detekt.sh`. There is no complete patch-resolved table yet —
+do not quote Level-2 win rates until both repositories finish.
+
 ## Is resolution worth it?
 
 This is the ablation the project exists for (docs/plan.md §5), and it had been missing: `seeds-only`
