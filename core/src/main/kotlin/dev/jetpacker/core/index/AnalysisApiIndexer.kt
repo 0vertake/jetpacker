@@ -171,6 +171,19 @@ class AnalysisApiIndexer(
                     for ((declaration, symbol, id) in identified) {
                         found += toSymbol(declaration, symbol, id, path, isTest)
                         related += structuralEdges(declaration, symbol, id, idOf)
+                        related += typeReferenceEdges(symbol, id)
+                    }
+
+                    // IMPORTS: PSI-only; emitted once per file, attributed to every top-level
+                    // declaration in it so the graph walker can follow imports from any entry point.
+                    val topLevelIds = identified
+                        .filter { containingDeclaration(it.declaration) == null }
+                        .map { it.id }
+                    val importedFqns = file.importDirectives.mapNotNull { it.importedFqName?.asString() }
+                    for (fromId in topLevelIds) {
+                        for (fqn in importedFqns) {
+                            related += Edge(fromId, fqn, EdgeKind.IMPORTS)
+                        }
                     }
 
                     for (call in file.collectDescendantsOfType<KtCallExpression>()) {
@@ -216,6 +229,23 @@ class AnalysisApiIndexer(
         val symbol: KaDeclarationSymbol,
         val id: String,
     )
+
+    private fun KaSession.typeReferenceEdges(symbol: KaDeclarationSymbol, id: String): List<Edge> = buildList {
+        fun addTypeRef(type: KaType) {
+            val fqn = (type as? KaClassType)?.classId?.asFqNameString() ?: return
+            add(Edge(id, fqn, EdgeKind.REFERENCES_TYPE))
+        }
+        when (symbol) {
+            is KaNamedFunctionSymbol -> {
+                symbol.returnType.let(::addTypeRef)
+                symbol.valueParameters.forEach { addTypeRef(it.returnType) }
+                symbol.receiverParameter?.returnType?.let(::addTypeRef)
+            }
+            is KaConstructorSymbol -> symbol.valueParameters.forEach { addTypeRef(it.returnType) }
+            is KaPropertySymbol -> symbol.returnType.let(::addTypeRef)
+            else -> Unit
+        }
+    }
 
     private fun KaSession.structuralEdges(
         declaration: KtDeclaration,
