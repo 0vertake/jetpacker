@@ -1,5 +1,6 @@
 package dev.jetpacker.core.pack
 
+import dev.jetpacker.core.index.ResolutionCoverage
 import dev.jetpacker.core.index.Symbol
 
 /**
@@ -11,14 +12,24 @@ import dev.jetpacker.core.index.Symbol
  * Every item carries its `why`, which is what makes a pack auditable rather than a pile of code.
  */
 fun Pack.toMarkdown(): String = buildString {
-    append(header(tokens, budget, items.size))
+    append(header(tokens, budget, items.size, coverage))
     section("Definitions", items.filter { it.fidelity == Fidelity.FULL && !it.symbol.isTest })
     section("Related signatures", items.filter { it.fidelity == Fidelity.STUB && !it.symbol.isTest })
     section("Tests likely affected", items.filter { it.symbol.isTest })
 }.trimEnd() + "\n"
 
-internal fun header(tokens: Int, budget: Int, count: Int): String =
-    "# Context pack\n\n$tokens / $budget tokens, $count declarations.\n"
+internal fun header(
+    tokens: Int,
+    budget: Int,
+    count: Int,
+    coverage: ResolutionCoverage = ResolutionCoverage(0, 0, 0),
+): String = buildString {
+    append("# Context pack\n\n$tokens / $budget tokens, $count declarations.")
+    if (coverage.callSites > 0 || coverage.failedFiles > 0) {
+        append(' ').append(coverage.asPackLine()).append('.')
+    }
+    append('\n')
+}
 
 /**
  * One item exactly as it appears in the pack.
