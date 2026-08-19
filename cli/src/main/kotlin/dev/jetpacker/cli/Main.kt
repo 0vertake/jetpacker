@@ -136,7 +136,7 @@ internal fun gradleFingerprint(repo: Path): String {
     val files = mutableListOf<Path>()
     if (Files.isDirectory(repo)) {
         Files.walk(repo).use { walk ->
-            walk.filter { Files.isRegularFile(it) && it.isGradleStamp() }.forEach { files += it }
+            walk.filter { Files.isRegularFile(it) && it.isGradleStamp() }.forEach { files.add(it) }
         }
     }
     files.sortBy { it.toString() }
