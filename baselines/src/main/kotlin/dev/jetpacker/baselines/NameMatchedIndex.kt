@@ -57,6 +57,7 @@ fun nameMatchedIndex(index: CodeIndex, repoRoot: Path, maxDefinitions: Int = MAX
         edges = (kept + calls).sortedWith(compareBy({ it.kind }, { it.from }, { it.to })),
         coverage = index.coverage,
         errors = index.errors,
+        coverageByFile = index.coverageByFile,
     )
 }
 

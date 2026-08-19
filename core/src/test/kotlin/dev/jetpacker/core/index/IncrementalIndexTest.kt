@@ -26,6 +26,7 @@ class IncrementalIndexTest {
 
         assertEquals(index(root).symbols, patched.symbols)
         assertEquals(index(root).edges, patched.edges)
+        assertEquals(index(root).coverage, patched.coverage)
     }
 
     @Test
@@ -43,6 +44,7 @@ class IncrementalIndexTest {
 
         assertEquals(index(root).symbols, patched.symbols)
         assertEquals(index(root).edges, patched.edges)
+        assertEquals(index(root).coverage, patched.coverage)
     }
 
     @Test
@@ -63,8 +65,10 @@ class IncrementalIndexTest {
         root.resolve("New.kt").writeText("package inc\nfun created() = 1\n")
 
         val patched = IndexCache.loadOrIndex(root, listOf(root), cacheDir = cache)
+        val full = AnalysisApiIndexer(listOf(root), repoRoot = root).use { it.index() }
 
         assertTrue(patched.symbols.any { it.name == "created" }, patched.symbols.map { it.name }.toString())
+        assertEquals(full.coverage, patched.coverage)
     }
 
     @Test
@@ -79,6 +83,7 @@ class IncrementalIndexTest {
 
         assertEquals(full.symbols, patched.symbols)
         assertEquals(full.edges, patched.edges)
+        assertEquals(full.coverage, patched.coverage)
     }
 
     @Test
@@ -94,6 +99,7 @@ class IncrementalIndexTest {
 
         assertEquals(full.symbols, patched.symbols)
         assertEquals(full.edges, patched.edges)
+        assertEquals(full.coverage, patched.coverage)
     }
 
     private companion object {
