@@ -25,9 +25,9 @@ import java.nio.file.Path
  * The MCP surface: `get_context_pack` for the briefing, `explain_context_pack` for why each
  * declaration is in it (docs/plan.md §6 pack explainability).
  *
- * The repository is indexed once, before the first request, because resolving a real project costs
- * about a minute and an agent asking for a pack should not wait for it. That is the whole reason
- * this exists as a server rather than as repeated `packer pack` invocations.
+ * The first index still happens before the client is answered, because resolving a real project
+ * costs about a minute. Later tool calls restamp the sources and reuse that index when nothing
+ * changed, or patch it when the agent has written files.
  */
 fun serve(repo: Path, embedSeeds: Boolean = false) {
     // stdout is the protocol, so nothing else may write to it — and the IntelliJ platform behind
@@ -36,8 +36,8 @@ fun serve(repo: Path, embedSeeds: Boolean = false) {
     System.setOut(System.err)
 
     System.err.println("indexing $repo ...")
-    val packer = jetpacker(repo, embedSeeds)
-    System.err.println("indexed ${packer.index.symbols.size} declarations; ready")
+    val packer = liveJetpacker(repo, embedSeeds)
+    System.err.println("indexed ${packer().index.symbols.size} declarations; ready")
 
     McpServer(packer).serve(System.`in`.bufferedReader(), protocol)
 }
@@ -51,7 +51,9 @@ fun serve(repo: Path, embedSeeds: Boolean = false) {
  * dies at the first `channel.close()` with a `NoSuchMethodError`. Against that, two tools over four
  * methods of a well-specified protocol is the smaller thing to own.
  */
-internal class McpServer(private val packer: Retriever) {
+internal class McpServer(private val packer: () -> Retriever) {
+    constructor(packer: Retriever) : this({ packer })
+
     fun serve(input: BufferedReader, output: PrintWriter) {
         for (line in input.lineSequence()) {
             val response = respond(line) ?: continue
@@ -103,8 +105,8 @@ internal class McpServer(private val packer: Retriever) {
         return reply(
             id,
             when (tool) {
-                PACK_TOOL_NAME -> contextPack(packer, arguments)
-                EXPLAIN_TOOL_NAME -> explainPack(packer, arguments)
+                PACK_TOOL_NAME -> contextPack(packer(), arguments)
+                EXPLAIN_TOOL_NAME -> explainPack(packer(), arguments)
                 else -> return failure(id, INVALID_PARAMS, "unknown tool: $tool")
             },
         )

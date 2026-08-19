@@ -6,6 +6,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
 import java.util.HexFormat
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.readText
@@ -14,6 +15,9 @@ import kotlin.io.path.writeText
 /**
  * On-disk [CodeIndex] keyed by the checkout path, reused when Kotlin sources and the classpath
  * have not changed, patched via [IndexPatch] when only a few files have.
+ *
+ * A hit in this process returns the same [CodeIndex] instance, so a long-lived server can call
+ * [loadOrIndex] on every request without rebuilding the ranker when nothing changed.
  */
 object IndexCache {
     fun defaultDir(): Path = Path.of(System.getProperty("user.home"), ".jetpacker", "indexes", "v$SCHEMA")
@@ -29,7 +33,7 @@ object IndexCache {
         val stamps = kotlinStamps(repoRoot, sourceRoots)
         val classpathStamp = classpathIdentity(classpath)
         val file = cacheFile(cacheDir, repoRoot)
-        val previous = load(file)
+        val previous = memory[file] ?: load(file)?.also { memory[file] = it }
 
         if (previous != null && previous.stamps == stamps && previous.classpath == classpathStamp) {
             return previous.index
@@ -51,8 +55,10 @@ object IndexCache {
             }
         }
 
+        val cached = CachedIndex(stamps, classpathStamp, index)
+        memory[file] = cached
         cacheDir.createDirectories()
-        file.writeText(json.encodeToString(CachedIndex.serializer(), CachedIndex(stamps, classpathStamp, index)))
+        file.writeText(json.encodeToString(CachedIndex.serializer(), cached))
         return index
     }
 
@@ -97,6 +103,8 @@ object IndexCache {
         fileName.toString().let { it.endsWith(".kt") || it.endsWith(".kts") }
 
     private fun Path.toRealPathOrSelf(): Path = runCatching { toRealPath() }.getOrDefault(this)
+
+    private val memory = ConcurrentHashMap<Path, CachedIndex>()
 
     private val json = Json { ignoreUnknownKeys = true }
 
