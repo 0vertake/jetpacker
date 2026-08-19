@@ -80,6 +80,13 @@ data class ResolutionCoverage(
         }
         return if (failedFiles == 0) resolved else "$resolved, $failedFiles files unanalyzable"
     }
+
+    operator fun plus(other: ResolutionCoverage) = ResolutionCoverage(
+        callSites + other.callSites,
+        resolvedCallees + other.resolvedCallees,
+        attributedToCaller + other.attributedToCaller,
+        failedFiles + other.failedFiles,
+    )
 }
 
 @Serializable
@@ -97,6 +104,7 @@ data class CodeIndex(
     val edges: List<Edge>,
     val coverage: ResolutionCoverage,
     val errors: List<CompileError> = emptyList(),
+    val coverageByFile: Map<String, ResolutionCoverage> = emptyMap(),
 ) {
     val byId: Map<String, Symbol> = symbols.associateBy { it.id }
 
