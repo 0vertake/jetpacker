@@ -131,10 +131,11 @@ repositories, and a better pack has not been shown to produce a better patch.
 
 Level 2 is built — judge, certified tasks, arms, prompt, leakage audit — in
 [`docs/level2.md`](docs/level2.md). **63 tasks are certified** (20 detekt, 43
-ktlint). The first scoring run reached two complete detekt tasks and then died
-on a dropped Cursor API connection; that is not a result, and there is no
-patch table to quote. What you can put on a CV is in
-[`docs/plan.md`](docs/plan.md) §10, taken only from Level 1.
+ktlint). Detekt scoring is **in progress** — refresh with `scripts/update-level2-doc.sh detekt`
+or `scripts/level2-report.sh`. ktlint starts automatically after detekt when
+`scripts/chain-ktlint-after-detekt.sh` is running under `screen`. There is no complete patch table to
+quote yet. What you can put on a CV is in [`docs/plan.md`](docs/plan.md) §10,
+taken only from Level 1.
 
 ## Layout
 

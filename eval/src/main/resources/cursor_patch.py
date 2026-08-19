@@ -30,14 +30,20 @@ def main() -> int:
         # The SDK launches its bridge with `workspace=os.getcwd()`, not `local.cwd`.
         # Staying in the harness repo would let the agent search this project.
         os.chdir(empty)
-        result = Agent.prompt(
-            prompt,
-            AgentOptions(
-                api_key=key,
-                model=os.environ.get("JETPACKER_MODEL", "composer-2.5"),
-                local=LocalAgentOptions(cwd=empty, setting_sources=[]),
-            ),
-        )
+        try:
+            result = Agent.prompt(
+                prompt,
+                AgentOptions(
+                    api_key=key,
+                    model=os.environ.get("JETPACKER_MODEL", "composer-2.5"),
+                    local=LocalAgentOptions(cwd=empty, setting_sources=[]),
+                ),
+            )
+        except Exception as error:
+            # Network blips and rate limits must not kill a multi-hour run; score this arm
+            # as no answer and let the harness decide whether the backend is down for good.
+            print(error, file=sys.stderr)
+            return 2
 
     if result.status != "finished":
         print(f"run did not finish: {result.status}", file=sys.stderr)

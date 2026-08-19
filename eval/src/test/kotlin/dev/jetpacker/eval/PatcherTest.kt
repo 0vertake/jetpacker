@@ -86,6 +86,16 @@ $DIFF
     }
 
     @Test
+    fun `scores a transient backend failure as no answer, not a harness crash`() {
+        val patcher = CursorPatcher(
+            Path.of("/usr/bin/python3"),
+            helper("import sys\nprint('Network request failed', file=sys.stderr)\nsys.exit(2)"),
+        )
+
+        assertEquals("", patcher.patch("fix it", pack = null))
+    }
+
+    @Test
     fun `refuses to score an arm whose backend never ran`() {
         val patcher = CursorPatcher(
             Path.of("/usr/bin/python3"),
