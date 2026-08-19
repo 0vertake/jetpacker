@@ -65,6 +65,22 @@ class AnalysisApiIndexerTest {
     }
 
     @Test
+    fun `records file imports on top-level declarations`() {
+        assertEquals(
+            listOf("fixture.GreetingService"),
+            index.outgoing("fixture.run()", EdgeKind.IMPORTS).sorted(),
+        )
+    }
+
+    @Test
+    fun `records type references on declarations`() {
+        assertEquals(
+            listOf("kotlin.String"),
+            index.outgoing("fixture.GreetingService.welcome(kotlin.String)", EdgeKind.REFERENCES_TYPE).sorted(),
+        )
+    }
+
+    @Test
     fun `links an override to the interface method it implements`() {
         assertEquals(
             listOf("fixture.Greeter.greet(kotlin.String)"),

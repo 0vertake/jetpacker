@@ -4,14 +4,25 @@ Level 1 asks whether a pack contains the declarations a fix touched. Level 2 ask
 reader actually cares about: **does a better pack produce a better patch?** One model, one prompt,
 one shot, and the suite's own tests decide.
 
-Results are not in this document as a score. A first detekt scoring run started 17 Aug 2026
-(`composer-2.5`, 4k, bodies-only) and **aborted** when the Cursor API returned `Network request
-failed`. Two tasks completed all four arms; a third died on `none` as `NO_ANSWER`. The ledger is
-local (`~/.jetpacker-l2/level2.tsv`) and is not copied here: two tasks cannot separate arms, and
-on both of them the no-context floor already resolved, so this slice cannot say retrieval did
-anything. Resume is safe — already-scored `(task, arm)` pairs are skipped.
+Results are partial. A detekt run started 17 Aug 2026 (`composer-2.5`, 4k, bodies-only) aborted
+when the Cursor API returned `Network request failed`; it was resumed 19 Aug and reached **15 of 20
+certified detekt tasks** (four arms each) before stopping again on task `5684`. The ledger is local
+(`~/.jetpacker-l2/level2.tsv`); resume is safe — already-scored `(task, arm)` pairs are skipped.
 
-Everything below was fixed before that run, which is the point of writing it down first.
+### Partial detekt results (15 tasks, bodies-only, 4k)
+
+| arm | resolved | not applied | no answer | unresolved |
+|-----|----------|-------------|-----------|------------|
+| `none` | 11/15 | 3 | 1 | 0 |
+| `chunk-bm25` | 12/15 | 2 | 0 | 1 |
+| `bm25` | 14/15 | 1 | 0 | 0 |
+| `jp` | 14/15 | 1 | 0 | 0 |
+
+This slice is too small to claim a win — 11 of 15 tasks resolve with no context at all — but it
+does show retrieval is not uniformly useless: on the four tasks where `none` did not resolve,
+`jp` and `bm25` each resolved three. The full 20-task sample is required before drawing conclusions.
+
+Everything below was fixed before the first run, which is the point of writing it down first.
 
 ## The judge is not ours
 
@@ -126,6 +137,8 @@ SWE-bench scores.
 
 Both outlive a shell; run them under `screen`, never concurrently with each other or with a Gradle
 build of this repository. `-Djetpacker.patcher=<script.py>` swaps the model backend, or a stub, which
-is how the loop is exercised without spending calls. Each arm's context is written to
+is how the loop is exercised without spending calls. `-Djetpacker.fullTierShare=0.15` with a separate
+`-Djetpacker.l2=~/.jetpacker-l2-bodies15` runs the shipped body share without overwriting the
+bodies-only ledger. Each arm's context is written to
 `~/.jetpacker-l2/<task>/<arm>.context.md`, beside the verifier's logs, so any resolved-count can be
 read back to the pack that caused it.
