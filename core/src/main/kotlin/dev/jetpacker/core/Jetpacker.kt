@@ -1,7 +1,7 @@
 package dev.jetpacker.core
 
-import dev.jetpacker.core.index.AnalysisApiIndexer
 import dev.jetpacker.core.index.CodeIndex
+import dev.jetpacker.core.index.IndexCache
 import dev.jetpacker.core.pack.Pack
 import dev.jetpacker.core.pack.Packer
 import dev.jetpacker.core.project.readGradleProject
@@ -41,16 +41,23 @@ class Jetpacker(
     companion object {
         const val DEFAULT_SEEDS = 20
 
-        /** Reads the build, resolves the sources, and indexes them. Slow; call once per checkout. */
-        fun forRepository(repoRoot: Path, weights: EdgeWeights = EdgeWeights()): Jetpacker {
+        /**
+         * Reads the build and indexes the sources. Slow on a cold cache; a later call on the
+         * same checkout reuses the on-disk index, or re-resolves only the files that changed.
+         */
+        fun forRepository(
+            repoRoot: Path,
+            weights: EdgeWeights = EdgeWeights(),
+            cacheDir: Path = IndexCache.defaultDir(),
+        ): Jetpacker {
             val project = readGradleProject(repoRoot)
-            val index = AnalysisApiIndexer(
+            val index = IndexCache.loadOrIndex(
+                repoRoot = repoRoot,
                 sourceRoots = project.sourceRoots,
                 classpath = project.classpath,
-                jdkHome = Path.of(System.getProperty("java.home")),
-                repoRoot = repoRoot,
                 testRoots = project.testRoots,
-            ).use { it.index() }
+                cacheDir = cacheDir,
+            )
             return Jetpacker(repoRoot, index, weights)
         }
     }

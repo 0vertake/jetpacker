@@ -356,10 +356,12 @@ class AnalysisApiIndexer(
         return null
     }
 
-    private fun relativePath(path: Path): String =
-        (root?.takeIf { path.startsWith(it) }?.relativize(path) ?: path)
+    private fun relativePath(path: Path): String {
+        val absolute = runCatching { path.toRealPath() }.getOrDefault(path)
+        return (root?.takeIf { absolute.startsWith(it) }?.relativize(absolute) ?: absolute)
             .toString()
             .replace('\\', '/')
+    }
 
     private fun KtDeclaration.isIndexable(): Boolean =
         this is KtClassOrObject || this is KtNamedFunction || this is KtProperty || this is KtSecondaryConstructor
