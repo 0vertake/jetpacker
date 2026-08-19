@@ -46,9 +46,45 @@ class IndexPatchTest {
         assertEquals(emptySet(), IndexPatch.referrersToRemoved(base, setOf("Rule.kt"), emptySet()))
     }
 
+    @Test
+    fun `re-analyzes a file that called a name the edit just declared`() {
+        val base = index(
+            symbols = listOf(symbol("Caller.run", "Caller.kt")),
+            errors = listOf(CompileError("Caller.kt", 1, "unresolved call `visit`")),
+        )
+        val fresh = index(symbols = listOf(symbol("Rule.visit", "Rule.kt")))
+
+        assertEquals(setOf("Caller.kt"), IndexPatch.referrersToAdded(base, setOf("Rule.kt"), fresh))
+    }
+
+    @Test
+    fun `leaves alone an unresolved call whose name was not added`() {
+        val base = index(
+            symbols = listOf(symbol("Caller.run", "Caller.kt")),
+            errors = listOf(CompileError("Caller.kt", 1, "unresolved call `other`")),
+        )
+        val fresh = index(symbols = listOf(symbol("Rule.visit", "Rule.kt")))
+
+        assertEquals(emptySet(), IndexPatch.referrersToAdded(base, setOf("Rule.kt"), fresh))
+    }
+
+    @Test
+    fun `does not name a changed file as an added-callee referrer`() {
+        val base = index(
+            symbols = emptyList(),
+            errors = listOf(CompileError("Rule.kt", 1, "unresolved call `visit`")),
+        )
+        val fresh = index(symbols = listOf(symbol("Rule.visit", "Rule.kt")))
+
+        assertEquals(emptySet(), IndexPatch.referrersToAdded(base, setOf("Rule.kt"), fresh))
+    }
+
     private companion object {
-        fun index(symbols: List<Symbol>, edges: List<Edge>) =
-            CodeIndex(symbols, edges, ResolutionCoverage(0, 0, 0))
+        fun index(
+            symbols: List<Symbol>,
+            edges: List<Edge> = emptyList(),
+            errors: List<CompileError> = emptyList(),
+        ) = CodeIndex(symbols, edges, ResolutionCoverage(0, 0, 0), errors)
 
         fun symbol(id: String, file: String) = Symbol(
             id = id,
