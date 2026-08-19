@@ -4,23 +4,98 @@ Level 1 asks whether a pack contains the declarations a fix touched. Level 2 ask
 reader actually cares about: **does a better pack produce a better patch?** One model, one prompt,
 one shot, and the suite's own tests decide.
 
-Results are partial. A detekt run started 17 Aug 2026 (`composer-2.5`, 4k, bodies-only) aborted
-when the Cursor API returned `Network request failed`; it was resumed 19 Aug and reached **15 of 20
-certified detekt tasks** (four arms each) before stopping again on task `5684`. The ledger is local
+Detekt Level 2 is **in progress** (`composer-2.5`, 4k, bodies-only). The ledger is local
 (`~/.jetpacker-l2/level2.tsv`); resume is safe — already-scored `(task, arm)` pairs are skipped.
+Refresh the table below with `scripts/update-level2-doc.sh detekt`, or start the chain watcher
+(`scripts/chain-ktlint-after-detekt.sh`) to resume detekt, refresh the doc every two minutes, and
+launch ktlint when detekt hits 20/20.
 
-### Partial detekt results (15 tasks, bodies-only, 4k)
+<!-- DETEKT_L2_START -->
+## Detekt results (16/20 tasks, bodies-only, 4k)
 
-| arm | resolved | not applied | no answer | unresolved |
-|-----|----------|-------------|-----------|------------|
-| `none` | 11/15 | 3 | 1 | 0 |
-| `chunk-bm25` | 12/15 | 2 | 0 | 1 |
-| `bm25` | 14/15 | 1 | 0 | 0 |
-| `jp` | 14/15 | 1 | 0 | 0 |
+*Auto-generated 2026-08-20 from `/Users/milos/.jetpacker-l2/level2.tsv` — run `scripts/update-level2-doc.sh detekt` to refresh.*
 
-This slice is too small to claim a win — 11 of 15 tasks resolve with no context at all — but it
-does show retrieval is not uniformly useless: on the four tasks where `none` did not resolve,
-`jp` and `bm25` each resolved three. The full 20-task sample is required before drawing conclusions.
+**Detekt Level 2 is in progress.** 16 of 20 certified tasks have all four arms scored; 3 not started, 1 partial.
+
+### Summary
+
+| arm | resolved | no answer | not applied | unresolved |
+|-----|----------|-----------|-------------|------------|
+| `none` | 12/16 (75%) | 1 | 3 | 0 |
+| `chunk-bm25` | 12/16 (75%) | 1 | 2 | 1 |
+| `bm25` | 15/16 (93%) | 0 | 1 | 0 |
+| `jp` | 14/16 (87%) | 1 | 1 | 0 |
+
+Retrieval arms average `chunk-bm25` ~3993 tokens, `bm25` ~3990 tokens, `jp` ~3987 tokens; `none` is 0.
+
+### Pairwise (complete tasks only)
+
+| comparison | count |
+|------------|-------|
+| `jp` resolves, `none` does not | 4/16 |
+| `bm25` resolves, `none` does not | 3/16 |
+| `bm25` resolves, `jp` does not | 2/16 |
+| `jp` resolves, `bm25` does not | 1/16 |
+| all four arms resolve | 9/16 |
+| only `none` resolves | 0/16 |
+
+### Per-task outcomes
+
+| task | `none` | `chunk-bm25` | `bm25` | `jp` |
+|------|--------|--------------|--------|------|
+| ✓ detekt-4205 | RESOLVED | NOT_APPLIED | RESOLVED | RESOLVED |
+| ✓ detekt-4249 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-4728 | NO_ANSWER | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-4733 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-4738 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-4808 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-4818 | RESOLVED | RESOLVED | RESOLVED | NOT_APPLIED |
+| ✓ detekt-4994 | NOT_APPLIED | NOT_APPLIED | RESOLVED | RESOLVED |
+| ✓ detekt-5006 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-5009 | NOT_APPLIED | UNRESOLVED | NOT_APPLIED | RESOLVED |
+| ✓ detekt-5252 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-5352 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-5459 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-5516 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-5577 | NOT_APPLIED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-5684 | RESOLVED | NO_ANSWER | RESOLVED | NO_ANSWER |
+| … detekt-6352 | RESOLVED | RESOLVED | RESOLVED | — |
+|   detekt-6443 | — | — | — | — |
+|   detekt-6446 | — | — | — | — |
+|   detekt-7715 | — | — | — | — |
+
+### Not yet complete
+
+| task | status |
+|------|--------|
+| detekt-6352 | partial — missing `jp` |
+| detekt-6443 | not started |
+| detekt-6446 | not started |
+| detekt-7715 | not started |
+<!-- DETEKT_L2_END -->
+
+### Reading detekt so far
+
+**Do not treat a partial sample as a final score.** Several outcomes are `NOT_APPLIED` or
+`NO_ANSWER` rather than verifier failures — a full 20-task sample plus stable API conditions are
+needed before comparing arms.
+
+What the partial data already suggests:
+
+1. **Most detekt fixes do not need retrieval at this budget** — roughly three quarters resolve with
+   the issue alone. That matches Level-1's high recall@4k on detekt and the fact that issues name the
+   misbehaving rule.
+2. **When the floor fails, retrieval often helps** — on the tasks where `none` did not resolve,
+   declaration-level BM25 and `jp` usually fixed them.
+3. **`bm25` has led on resolved count in the partial slice**, but the gap to `jp` is small and includes
+   apply/API noise; declaration-level BM25 without graph expansion is competitive at bodies-only 4k.
+4. **Chunk-RAG ties the floor** and occasionally patches the wrong way (`UNRESOLVED`) where
+   declaration arms succeed — consistent with Level-1 chunk baselines trailing whole-declaration
+   retrieval on detekt.
+
+<!-- KTLINT_L2_START -->
+*Ktlint Level 2 has not started. Queued after detekt — separate ledger at `~/.jetpacker-l2-ktlint/`.*
+<!-- KTLINT_L2_END -->
 
 Everything below was fixed before the first run, which is the point of writing it down first.
 
@@ -139,15 +214,20 @@ Gradle-free resume (same classpath as overnight runs), after `installDist` synce
 to `~/.jetpacker-l2/lib/`:
 
 ```bash
-screen -dmS jetpacker-l2 bash -c 'caffeinate -i ~/.jetpacker-l2/resume.sh >> ~/.jetpacker-l2/level2.log 2>&1'
+# detekt — resumes skipped (task, arm) pairs; uses fixed cursor_patch.py from checkout
+screen -dmS jetpacker-l2 bash -c 'caffeinate -i scripts/resume-detekt-l2.sh >> ~/.jetpacker-l2/level2.log 2>&1'
 
-# ktlint after detekt — separate ledger, needs /tmp/ktlint cloned first
+# auto-resume detekt, refresh docs/level2.md, then start ktlint when detekt hits 20/20
+screen -dmS jetpacker-l2-chain bash -c 'caffeinate -i scripts/chain-ktlint-after-detekt.sh'
+
+# ktlint manually — separate ledger, needs /tmp/ktlint cloned first
 git clone https://github.com/pinterest/ktlint /tmp/ktlint
 screen -dmS jetpacker-l2-ktlint bash -c 'caffeinate -i scripts/resume-ktlint-l2.sh >> ~/.jetpacker-l2/level2-ktlint.log 2>&1'
 
 # snapshot the ledger as markdown
 scripts/level2-report.sh
-scripts/level2-report.sh ~/.jetpacker-l2-ktlint/level2.tsv
+scripts/update-level2-doc.sh detekt
+scripts/update-level2-doc.sh ktlint   # once ktlint ledger exists
 ```
 
 Both outlive a shell; run them under `screen`, never concurrently with each other or with a Gradle

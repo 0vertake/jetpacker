@@ -131,10 +131,9 @@ repositories, and a better pack has not been shown to produce a better patch.
 
 Level 2 is built — judge, certified tasks, arms, prompt, leakage audit — in
 [`docs/level2.md`](docs/level2.md). **63 tasks are certified** (20 detekt, 43
-ktlint). Detekt scoring is **in progress**: 16 of 20 certified tasks have all
-four arms; the ledger lives at `~/.jetpacker-l2/level2.tsv`. Summarise it with
-`scripts/level2-report.sh`. ktlint (43 tasks, separate ledger) is queued after
-detekt — see `scripts/resume-ktlint-l2.sh`. There is no complete patch table to
+ktlint). Detekt scoring is **in progress** — refresh with `scripts/update-level2-doc.sh detekt`
+or `scripts/level2-report.sh`. ktlint starts automatically after detekt when
+`scripts/chain-ktlint-after-detekt.sh` is running under `screen`. There is no complete patch table to
 quote yet. What you can put on a CV is in [`docs/plan.md`](docs/plan.md) §10,
 taken only from Level 1.
 
