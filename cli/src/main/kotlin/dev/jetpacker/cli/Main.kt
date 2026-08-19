@@ -7,7 +7,10 @@ import dev.jetpacker.core.Retriever
 import dev.jetpacker.core.index.IndexCache
 import dev.jetpacker.core.pack.toMarkdown
 import dev.jetpacker.core.project.readGradleProject
+import java.nio.file.Files
 import java.nio.file.Path
+import java.security.MessageDigest
+import java.util.HexFormat
 import kotlin.io.path.readText
 import kotlin.system.exitProcess
 
@@ -91,14 +94,21 @@ internal fun jetpacker(repo: Path, embedSeeds: Boolean): Jetpacker {
 
 /**
  * Rebuilds from [IndexCache] on each call, keeping the same [Jetpacker] when the sources have
- * not changed. Gradle source roots are read once: an agent editing `.kt` files is the case this
- * has to be fast for; a new module still needs a server restart.
+ * not changed. Gradle is re-imported only when a build file changes, which is how a new module
+ * becomes visible without restarting the server.
  */
 internal fun liveJetpacker(repo: Path, embedSeeds: Boolean): () -> Jetpacker {
-    val project = readGradleProject(repo)
+    var project = readGradleProject(repo)
+    var gradle = gradleFingerprint(repo)
     val embedder by lazy { Embedder() }
     var current: Jetpacker? = null
     return {
+        val now = gradleFingerprint(repo)
+        if (now != gradle) {
+            System.err.println("reloading Gradle model")
+            project = readGradleProject(repo)
+            gradle = now
+        }
         val index = IndexCache.loadOrIndex(
             repoRoot = repo,
             sourceRoots = project.sourceRoots,
@@ -120,6 +130,41 @@ internal fun liveJetpacker(repo: Path, embedSeeds: Boolean): () -> Jetpacker {
         }
     }
 }
+
+internal fun gradleFingerprint(repo: Path): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val files = mutableListOf<Path>()
+    if (Files.isDirectory(repo)) {
+        Files.walk(repo).use { walk ->
+            walk.filter { Files.isRegularFile(it) && it.isGradleStamp() }.forEach { files += it }
+        }
+    }
+    files.sortBy { it.toString() }
+    for (file in files) {
+        val relative = repo.relativize(file).toString().replace('\\', '/')
+        digest.update(relative.toByteArray())
+        digest.update(Files.readAllBytes(file))
+    }
+    return HexFormat.of().formatHex(digest.digest())
+}
+
+private fun Path.isGradleStamp(): Boolean {
+    val name = fileName.toString()
+    if (name !in GRADLE_STAMP_NAMES) return false
+    return generateSequence(parent) { it.parent }.none {
+        val dir = it.fileName?.toString() ?: return@none false
+        dir == "build" || dir == ".gradle"
+    }
+}
+
+private val GRADLE_STAMP_NAMES = setOf(
+    "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle",
+    "settings.gradle.kts",
+    "gradle.properties",
+    "libs.versions.toml",
+)
 
 private fun fail(message: String): Nothing {
     System.err.println(message)
