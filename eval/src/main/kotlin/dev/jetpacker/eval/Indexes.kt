@@ -2,6 +2,7 @@ package dev.jetpacker.eval
 
 import dev.jetpacker.core.index.AnalysisApiIndexer
 import dev.jetpacker.core.index.CodeIndex
+import dev.jetpacker.core.index.IndexPatch
 import dev.jetpacker.core.project.readGradleProject
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -68,60 +69,24 @@ class Indexes(private val repo: Path, cacheDir: Path) {
         }.getOrNull() ?: return null
 
         val files = index.symbols.mapTo(HashSet()) { it.file }
-        if (changed.size > files.size * REUSE_LIMIT) return null
+        if (!IndexPatch.worthReusing(changed.size, files.size)) return null
         return index to changed
     }
 
     /**
-     * Re-analyzes what changed and keeps the rest of [base].
-     *
-     * Two passes, because an edge is only stale if what it points at is gone. The first analyzes
-     * the files the diff touched; the second analyzes whichever files referenced a declaration
-     * that pass one just proved no longer exists, since their edges now name an identifier nothing
-     * declares. Re-analyzing every file that referenced a *changed* file would be simpler and
-     * three times slower — on detekt it means 764 files instead of 250 for the same answer.
-     *
-     * What neither pass can see is a call that did not resolve before and resolves now, to a
-     * declaration a changed file has just added. That is why this lives in the benchmark cache and
-     * not in the engine: the shipped path always indexes a checkout whole.
+     * Re-analyzes what changed and keeps the rest of [base]. See [IndexPatch].
      */
     private fun patch(checkout: Path, base: CodeIndex, changed: Set<String>): CodeIndex =
         withIndexer(checkout) { indexer ->
-            val fileOf = base.symbols.associate { it.id to it.file }
             val fresh = timed("${changed.size} changed files") { indexer.index(changed) }
-
-            val referrers = referrersToRemoved(base, changed, fresh.byId.keys)
+            val referrers = IndexPatch.referrersToRemoved(base, changed, fresh.byId.keys)
             val repaired = if (referrers.isEmpty()) {
                 null
             } else {
                 timed("${referrers.size} files that referenced something removed") { indexer.index(referrers) }
             }
-
-            val dirty = changed + referrers
-            val rebuilt = fresh.symbols + repaired?.symbols.orEmpty()
-            val rebuiltEdges = fresh.edges + repaired?.edges.orEmpty()
-
-            CodeIndex(
-                symbols = (base.symbols.filterNot { it.file in dirty } + rebuilt)
-                    .sortedWith(compareBy({ it.id }, { it.file }, { it.startLine })),
-                edges = (base.edges.filterNot { fileOf[it.from] in dirty } + rebuiltEdges)
-                    .distinct()
-                    .sortedWith(compareBy({ it.kind }, { it.from }, { it.to })),
-                coverage = fresh.coverage,
-            )
+            IndexPatch.merge(base, changed + referrers, fresh, repaired)
         }
-
-    /**
-     * Unchanged files whose edges point at a declaration the re-analysis found to be gone.
-     *
-     * These are the only unchanged files that can hold a stale edge: an edge naming a declaration
-     * that still exists still describes it correctly, however much its body moved.
-     */
-    internal fun referrersToRemoved(base: CodeIndex, changed: Set<String>, survivors: Set<String>): Set<String> {
-        val fileOf = base.symbols.associate { it.id to it.file }
-        val removed = base.symbols.filter { it.file in changed }.map { it.id }.toSet() - survivors
-        return base.edges.filter { it.to in removed }.mapNotNull { fileOf[it.from] }.toSet() - changed
-    }
 
     private fun timed(scope: String, build: () -> CodeIndex): CodeIndex {
         val started = System.nanoTime()
@@ -197,8 +162,5 @@ class Indexes(private val repo: Path, cacheDir: Path) {
          * benchmark run silently measured a mixture of the two.
          */
         const val SCHEMA = 4
-
-        /** Above this share of the repository, patching a cached index stops being worth it. */
-        const val REUSE_LIMIT = 0.35
     }
 }

@@ -1,21 +1,14 @@
-package dev.jetpacker.eval
+package dev.jetpacker.core.index
 
-import dev.jetpacker.core.index.CodeIndex
-import dev.jetpacker.core.index.Edge
-import dev.jetpacker.core.index.EdgeKind
-import dev.jetpacker.core.index.ResolutionCoverage
-import dev.jetpacker.core.index.Symbol
-import dev.jetpacker.core.index.SymbolKind
-import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
  * Patching a cached index is only sound if it re-analyzes everything whose edges could have gone
  * stale. Getting this wrong does not fail a run — it produces an index that is quietly wrong about
- * a few edges, and a benchmark that scores it.
+ * a few edges, and a pack built from it.
  */
-class IndexesTest {
+class IndexPatchTest {
     @Test
     fun `re-analyzes a file whose callee no longer exists`() {
         val base = index(
@@ -25,7 +18,7 @@ class IndexesTest {
 
         assertEquals(
             setOf("Caller.kt"),
-            indexes().referrersToRemoved(base, changed = setOf("Rule.kt"), survivors = emptySet()),
+            IndexPatch.referrersToRemoved(base, changed = setOf("Rule.kt"), survivors = emptySet()),
         )
     }
 
@@ -38,7 +31,7 @@ class IndexesTest {
 
         assertEquals(
             emptySet(),
-            indexes().referrersToRemoved(base, setOf("Rule.kt"), survivors = setOf("Rule.visit")),
+            IndexPatch.referrersToRemoved(base, setOf("Rule.kt"), survivors = setOf("Rule.visit")),
             "an edge to a declaration that is still there is still right, however much its body moved",
         )
     }
@@ -50,12 +43,10 @@ class IndexesTest {
             edges = listOf(Edge("Rule.report", "Rule.visit", EdgeKind.CALLS)),
         )
 
-        assertEquals(emptySet(), indexes().referrersToRemoved(base, setOf("Rule.kt"), emptySet()))
+        assertEquals(emptySet(), IndexPatch.referrersToRemoved(base, setOf("Rule.kt"), emptySet()))
     }
 
     private companion object {
-        fun indexes() = Indexes(createTempDirectory("jetpacker-repo"), createTempDirectory("jetpacker-cache"))
-
         fun index(symbols: List<Symbol>, edges: List<Edge>) =
             CodeIndex(symbols, edges, ResolutionCoverage(0, 0, 0))
 
