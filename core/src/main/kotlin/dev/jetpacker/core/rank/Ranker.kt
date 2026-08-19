@@ -30,6 +30,11 @@ data class EdgeWeights(
     val overrides: Double = 0.8,
     val overriddenBy: Double = 1.0,
     val sameFile: Double = 1.0,
+    // Default 0.0: ablation decides whether these earn a nonzero weight (docs/plan.md §5).
+    val imports: Double = 0.0,
+    val importedBy: Double = 0.0,
+    val referencesType: Double = 0.0,
+    val referencedByType: Double = 0.0,
 ) {
     /** Turns off structural expansion, leaving seeds only — the headline ablation's OFF arm. */
     fun none(): EdgeWeights = EdgeWeights(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -170,6 +175,8 @@ class Ranker(
         EdgeKind.CONTAINS -> weights.contains to weights.containedBy
         EdgeKind.EXTENDS -> weights.extends to weights.extendedBy
         EdgeKind.OVERRIDES -> weights.overrides to weights.overriddenBy
+        EdgeKind.IMPORTS -> weights.imports to weights.importedBy
+        EdgeKind.REFERENCES_TYPE -> weights.referencesType to weights.referencedByType
     }
 
     private fun forwardReason(kind: EdgeKind, from: Symbol): String = when (kind) {
@@ -177,6 +184,8 @@ class Ranker(
         EdgeKind.CONTAINS -> "member-of:${from.name}"
         EdgeKind.EXTENDS -> "supertype-of:${from.name}"
         EdgeKind.OVERRIDES -> "overridden-by:${from.name}"
+        EdgeKind.IMPORTS -> "imported-by:${from.name}"
+        EdgeKind.REFERENCES_TYPE -> "referenced-by:${from.name}"
     }
 
     /** [target] is the symbol this link leads to; [origin] is the one it leads back from. */
@@ -184,6 +193,8 @@ class Ranker(
         EdgeKind.CALLS -> if (target.isTest) "test-of:${origin.name}" else "caller-of:${origin.name}"
         EdgeKind.CONTAINS -> "declares:${origin.name}"
         EdgeKind.EXTENDS, EdgeKind.OVERRIDES -> "impl-of:${origin.name}"
+        EdgeKind.IMPORTS -> "imports:${origin.name}"
+        EdgeKind.REFERENCES_TYPE -> "type-ref:${origin.name}"
     }
 
     private companion object {

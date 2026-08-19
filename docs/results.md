@@ -74,6 +74,15 @@ the direction the design predicts and the reason the mined numbers are the conse
 commit message is written by someone who has already found the code and frequently names it, so
 keyword matching is closer to reading the answer off the task.
 
+**Body share without graph expansion collapses at scale.** `bm25:full.30` drops from 51.8% at 2k to
+36.2% at 4k and 20.7% at 8k — while its all-stub twin `bm25:full.00` keeps climbing. The packer's two
+fidelity passes share the same token pool: the body pass spends up to 30% of the budget on full
+sources, then the stub pass fills what is left. At 4k that earmarks ~1170 tokens for bodies; if BM25's
+top hits are near-misses (adjacent classes, wrong rule file) those tokens land nowhere near the gold
+declaration. The engine does not have this problem because graph expansion first confirms the right
+neighbourhood before committing the budget to bodies. `bm25:full.30` is in the table as the ablation
+that isolates exactly this — keyword ranking cannot verify locality before spending on it.
+
 **Below 2k, matching the words still wins.** BM25 leads by 4.9 points at 1k. With room for a few
 dozen signatures, being right about the first handful beats expanding around them, and the engine's
 advantage only appears once the budget can hold a neighbourhood. Same shape as on Exposed.

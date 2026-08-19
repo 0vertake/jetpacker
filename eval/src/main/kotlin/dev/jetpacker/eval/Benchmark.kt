@@ -159,6 +159,9 @@ private fun edgeAblations(snapshot: Snapshot): List<Retriever> = listOf(
     "-impls" to EdgeWeights(extends = 0.0, extendedBy = 0.0, overrides = 0.0, overriddenBy = 0.0),
     "-contains" to EdgeWeights(contains = 0.0, containedBy = 0.0),
     "-samefile" to EdgeWeights(sameFile = 0.0),
+    // §4 candidates: do import-level or type-reference edges add recall on top of resolved calls?
+    "+imports" to EdgeWeights(imports = 1.0, importedBy = 1.0),
+    "+references" to EdgeWeights(referencesType = 1.0, referencedByType = 1.0),
 ).map { (name, weights) -> engine(snapshot, name, weights, fullTierShare = 0.15) } +
     // Not an edge kind: test code is reached by ordinary call edges, so the only way to ask what it
     // is worth is to refuse to pack it.

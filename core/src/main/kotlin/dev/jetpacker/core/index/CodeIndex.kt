@@ -34,12 +34,15 @@ data class Symbol(
  * Edge types, following LocAgent's finding that a small heterogeneous set is enough
  * (contain / invoke / inherit).
  *
- * `imports` and `references-type` from §4 are deliberately absent: with resolved calls they are
- * largely a coarser view of the same relation. The ablation harness is what should decide
- * whether they earn their place.
+ * [IMPORTS] and [REFERENCES_TYPE] are defaulted to zero weight in [EdgeWeights] so they do not
+ * change existing behaviour; the ablation harness measures whether they earn a nonzero weight.
+ * They are coarser than [CALLS]: an import is file-level and costs no resolution, a type reference
+ * is declaration-level and does. Both add edges where CALLS already exists (a called function is
+ * also a referenced type of its return), so ablating them on costs only — and ablating them off
+ * tells you how much of the graph they uniquely contribute.
  */
 @Serializable
-enum class EdgeKind { CONTAINS, CALLS, EXTENDS, OVERRIDES }
+enum class EdgeKind { CONTAINS, CALLS, EXTENDS, OVERRIDES, IMPORTS, REFERENCES_TYPE }
 
 /**
  * A directed relation between two [Symbol.id]s.
