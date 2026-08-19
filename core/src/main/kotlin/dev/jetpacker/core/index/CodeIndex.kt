@@ -82,6 +82,9 @@ data class ResolutionCoverage(
     }
 }
 
+@Serializable
+data class CompileError(val file: String, val line: Int, val message: String)
+
 /**
  * The resolved code graph a pack is built from.
  *
@@ -93,6 +96,7 @@ data class CodeIndex(
     val symbols: List<Symbol>,
     val edges: List<Edge>,
     val coverage: ResolutionCoverage,
+    val errors: List<CompileError> = emptyList(),
 ) {
     val byId: Map<String, Symbol> = symbols.associateBy { it.id }
 

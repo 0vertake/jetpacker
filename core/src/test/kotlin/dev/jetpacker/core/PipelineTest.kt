@@ -134,6 +134,20 @@ class PipelineTest {
     }
 
     @Test
+    fun `the pack lists an unresolved call in a packed file`() {
+        val root = fixture("unresolved")
+        val index = indexOf(root)
+        val markdown = Jetpacker(root, index).pack("`broken` cannot find missing").toMarkdown()
+
+        assertTrue(
+            index.errors.any { "missing" in it.message },
+            "the indexer has to record the unresolved call, got ${index.errors}",
+        )
+        assertTrue("## Diagnostics" in markdown, markdown)
+        assertTrue("missing" in markdown, markdown)
+    }
+
+    @Test
     fun `without structural expansion the implementation is never found`() {
         val ranked = Ranker(injection, EdgeWeights().none())
             .rank(SeedFinder(injection).find(INJECTION_TASK))
