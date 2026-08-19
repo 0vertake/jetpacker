@@ -1,9 +1,13 @@
 package dev.jetpacker.cli
 
 import java.nio.file.Path
+import kotlin.io.path.createTempDirectory
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class MainTest {
@@ -26,5 +30,30 @@ class MainTest {
         assertFalse(options.embedSeeds)
         assertEquals("serve", options.command)
         assertEquals(null, options.task)
+    }
+
+    @Test
+    fun `gradle fingerprint changes when a build file is written`() {
+        val root = createTempDirectory("jetpacker-gradle")
+        root.resolve("settings.gradle.kts").writeText("rootProject.name = \"x\"")
+
+        val first = gradleFingerprint(root)
+        root.resolve("build.gradle.kts").writeText("// plugins")
+        val second = gradleFingerprint(root)
+
+        assertNotEquals(first, second)
+        assertEquals(second, gradleFingerprint(root))
+    }
+
+    @Test
+    fun `gradle fingerprint ignores files under build output`() {
+        val root = createTempDirectory("jetpacker-gradle")
+        root.resolve("settings.gradle.kts").writeText("rootProject.name = \"x\"")
+        val first = gradleFingerprint(root)
+
+        val generated = root.resolve("build").createDirectories()
+        generated.resolve("build.gradle.kts").writeText("should not count")
+
+        assertEquals(first, gradleFingerprint(root))
     }
 }
