@@ -5,6 +5,8 @@ import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 /**
  * A patched index has to match a full one on the cases the two-pass update can see: a body
@@ -50,7 +52,19 @@ class IncrementalIndexTest {
         val first = IndexCache.loadOrIndex(root, listOf(root), cacheDir = cache)
         val second = IndexCache.loadOrIndex(root, listOf(root), cacheDir = cache)
 
-        assertEquals(first, second)
+        assertSame(first, second)
+    }
+
+    @Test
+    fun `indexes a file created after the cache was written`() {
+        val root = repo("fun used() = 1")
+        val cache = createTempDirectory("jetpacker-cache")
+        IndexCache.loadOrIndex(root, listOf(root), cacheDir = cache)
+        root.resolve("New.kt").writeText("package inc\nfun created() = 1\n")
+
+        val patched = IndexCache.loadOrIndex(root, listOf(root), cacheDir = cache)
+
+        assertTrue(patched.symbols.any { it.name == "created" }, patched.symbols.map { it.name }.toString())
     }
 
     @Test
