@@ -381,6 +381,11 @@ recall@budget and its change against the default.
 | co-location (same file) | 68.4 (−2.4) | 76.2 (−5.0) | 34.5 (−4.0) | 49.6 (−1.8) | 49.0 (−2.8) | 48.6 (**−11.0**) |
 | test code, refused entirely | 72.6 (+1.8) | 77.6 (−3.6) | 38.5 (0.0) | 51.4 (0.0) | 51.8 (0.0) | 59.6 (0.0) |
 
+**§4 edge candidates, first look on dataframe.** `jp:+imports` and `jp:+references` turn on import
+directives and type-reference edges (default off). On dataframe at 4k they reach 13.1% and 17.1%
+against `jp:default`'s 17.1% — neither buys recall on that corpus. A detekt run is still needed
+before they join this table; the arms exist in the harness from Aug 2026.
+
 One task is worth about 2.3 points on ktlint's 43, 3.6 on detekt's 28 and 8.3 on ort's 12, so read
 anything under about 3 points as noise on the first two and under 8 on ort.
 

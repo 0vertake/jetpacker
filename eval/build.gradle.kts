@@ -30,6 +30,9 @@ fun JavaExec.forwardJetpackerProperties() = listOf(
     "jetpacker.embed",
     "jetpacker.l2",
     "jetpacker.python",
+    "jetpacker.fullTierShare",
+    "jetpacker.testShare",
+    "jetpacker.patcher",
 ).forEach {
     providers.gradleProperty(it).orNull?.let { value -> systemProperty(it, value) }
 }
