@@ -44,15 +44,20 @@ object IndexPatch {
         val fileOf = base.symbols.associate { it.id to it.file }
         val rebuilt = fresh.symbols + repaired?.symbols.orEmpty()
         val rebuiltEdges = fresh.edges + repaired?.edges.orEmpty()
+        val byFile = (base.coverageByFile.filterKeys { it !in dirty } +
+            fresh.coverageByFile +
+            repaired?.coverageByFile.orEmpty())
+            .toSortedMap()
         return CodeIndex(
             symbols = (base.symbols.filterNot { it.file in dirty } + rebuilt)
                 .sortedWith(compareBy({ it.id }, { it.file }, { it.startLine })),
             edges = (base.edges.filterNot { fileOf[it.from] in dirty } + rebuiltEdges)
                 .distinct()
                 .sortedWith(compareBy({ it.kind }, { it.from }, { it.to })),
-            coverage = fresh.coverage,
+            coverage = byFile.values.fold(ResolutionCoverage(0, 0, 0)) { a, b -> a + b },
             errors = (base.errors.filterNot { it.file in dirty } + fresh.errors + repaired?.errors.orEmpty())
                 .sortedWith(compareBy({ it.file }, { it.line }, { it.message })),
+            coverageByFile = byFile,
         )
     }
 

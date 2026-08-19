@@ -121,7 +121,8 @@ class AnalysisApiIndexer(
      * indexing a second commit cheap. The whole module still enters the session: a file cannot be
      * resolved without the declarations it references.
      *
-     * [CodeIndex.coverage] then describes the analyzed files alone, not the repository.
+     * [CodeIndex.coverage] on the result describes [only], not the repository; [IndexPatch.merge]
+     * is what puts the rest back.
      */
     fun index(only: Set<String>): CodeIndex = build(only)
 
@@ -129,10 +130,7 @@ class AnalysisApiIndexer(
         val symbols = mutableListOf<Symbol>()
         val edges = mutableSetOf<Edge>()
         val errors = mutableListOf<CompileError>()
-        var callSites = 0
-        var resolvedCallees = 0
-        var attributedToCaller = 0
-        var failedFiles = 0
+        val coverageByFile = sortedMapOf<String, ResolutionCoverage>()
 
         for (file in files) {
             val absolute = Path.of(file.virtualFilePath)
@@ -155,6 +153,9 @@ class AnalysisApiIndexer(
             // resolution it asserts is impossible, and used to cost the repository its whole index.
             // A call that throws is therefore treated as a call that did not resolve, and a file
             // that throws anywhere else is counted and skipped so the other few thousand survive.
+            var callSites = 0
+            var resolvedCallees = 0
+            var attributedToCaller = 0
             val analyzed = runCatching {
                 analyze(file) {
                     // Two passes: PSI traversal is post-order, so a member is visited before the
@@ -189,11 +190,12 @@ class AnalysisApiIndexer(
                     found to related
                 }
             }.getOrElse {
-                failedFiles++
+                coverageByFile[path] = ResolutionCoverage(0, 0, 0, failedFiles = 1)
                 errors += CompileError(path, 1, "file unanalyzable")
                 null
             } ?: continue
 
+            coverageByFile[path] = ResolutionCoverage(callSites, resolvedCallees, attributedToCaller)
             symbols += analyzed.first
             edges += analyzed.second
         }
@@ -203,8 +205,9 @@ class AnalysisApiIndexer(
             // id, and which of the two came first then depended on the order they were analyzed in.
             symbols = symbols.sortedWith(compareBy({ it.id }, { it.file }, { it.startLine })),
             edges = edges.sortedWith(compareBy({ it.kind }, { it.from }, { it.to })),
-            coverage = ResolutionCoverage(callSites, resolvedCallees, attributedToCaller, failedFiles),
+            coverage = coverageByFile.values.fold(ResolutionCoverage(0, 0, 0)) { a, b -> a + b },
             errors = errors.sortedWith(compareBy({ it.file }, { it.line }, { it.message })),
+            coverageByFile = coverageByFile,
         )
     }
 
