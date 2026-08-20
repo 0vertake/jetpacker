@@ -28,9 +28,12 @@ data class GradleProject(
  * Source directories the project asked IntelliJ to hide (`idea { excludeDirs }`) are dropped.
  */
 fun readGradleProject(projectDir: Path): GradleProject {
+    val javaHome = System.getProperty("jetpacker.gradleJavaHome")?.let { Path.of(it) }
     val connector = GradleConnector.newConnector().forProjectDirectory(projectDir.toFile())
     connector.connect().use { connection ->
-        val modules = connection.getModel(IdeaProject::class.java).modules
+        val builder = connection.model(IdeaProject::class.java)
+        javaHome?.let { builder.setJavaHome(it.toFile()) }
+        val modules = builder.get().modules
 
         val contentRoots = modules.flatMap { module -> module.contentRoots.orEmpty() }
         val excluded = contentRoots.flatMap { it.excludeDirectories.orEmpty() }.map { it.toPath() }

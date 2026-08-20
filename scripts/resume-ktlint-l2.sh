@@ -11,6 +11,10 @@ if [[ ! -d /tmp/ktlint/.git ]]; then
   echo "clone ktlint first: git clone https://github.com/pinterest/ktlint /tmp/ktlint" >&2
   exit 1
 fi
+# ktlint HEAD (2.0 alpha) configures build-logic with java-compilation 26+. Jetpacker runs on JVM 21,
+# so pin the clone for Gradle model import only — task worktrees still check out each base commit.
+KTLINT_GRADLE_REF="${JETPACKER_KTLINT_GRADLE_REF:-3fe589643b916ace8414fca50426beafe2dc245f}"
+git -C /tmp/ktlint checkout -q "$KTLINT_GRADLE_REF"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 log="$HOME/.jetpacker-l2/level2-ktlint.log"
 mkdir -p "$HOME/.jetpacker-l2-ktlint"
