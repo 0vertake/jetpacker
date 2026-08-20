@@ -4,40 +4,37 @@ Level 1 asks whether a pack contains the declarations a fix touched. Level 2 ask
 reader actually cares about: **does a better pack produce a better patch?** One model, one prompt,
 one shot, and the suite's own tests decide.
 
-Detekt Level 2 is **in progress** (`composer-2.5`, 4k, bodies-only). The ledger is local
-(`~/.jetpacker-l2/level2.tsv`); resume is safe — already-scored `(task, arm)` pairs are skipped.
-Refresh the table below with `scripts/update-level2-doc.sh detekt`, or start the chain watcher
-(`scripts/chain-ktlint-after-detekt.sh`) to resume detekt, refresh the doc every two minutes, and
-launch ktlint when detekt hits 20/20.
+**Detekt Level 2 is complete** (20/20 certified tasks, `composer-2.5`, 4k, bodies-only). **Ktlint Level 2
+is in progress** (43 tasks). Ledgers: `~/.jetpacker-l2/level2.tsv` (detekt),
+`~/.jetpacker-l2-ktlint/level2.tsv` (ktlint). Resume is safe — already-scored `(task, arm)` pairs are
+skipped. Refresh tables with `scripts/update-level2-doc.sh detekt|ktlint`.
 
 <!-- DETEKT_L2_START -->
-## Detekt results (16/20 tasks, bodies-only, 4k)
+## Detekt results (20/20 tasks, bodies-only, 4k)
 
 *Auto-generated 2026-08-20 from `/Users/milos/.jetpacker-l2/level2.tsv` — run `scripts/update-level2-doc.sh detekt` to refresh.*
-
-**Detekt Level 2 is in progress.** 16 of 20 certified tasks have all four arms scored; 3 not started, 1 partial.
 
 ### Summary
 
 | arm | resolved | no answer | not applied | unresolved |
 |-----|----------|-----------|-------------|------------|
-| `none` | 12/16 (75%) | 1 | 3 | 0 |
-| `chunk-bm25` | 12/16 (75%) | 1 | 2 | 1 |
-| `bm25` | 15/16 (93%) | 0 | 1 | 0 |
-| `jp` | 14/16 (87%) | 1 | 1 | 0 |
+| `none` | 14/20 (70%) | 3 | 3 | 0 |
+| `chunk-bm25` | 14/20 (70%) | 3 | 2 | 1 |
+| `bm25` | 16/20 (80%) | 3 | 1 | 0 |
+| `jp` | 14/20 (70%) | 4 | 2 | 0 |
 
-Retrieval arms average `chunk-bm25` ~3993 tokens, `bm25` ~3990 tokens, `jp` ~3987 tokens; `none` is 0.
+Retrieval arms average `chunk-bm25` ~3992 tokens, `bm25` ~3988 tokens, `jp` ~3987 tokens; `none` is 0.
 
 ### Pairwise (complete tasks only)
 
 | comparison | count |
 |------------|-------|
-| `jp` resolves, `none` does not | 4/16 |
-| `bm25` resolves, `none` does not | 3/16 |
-| `bm25` resolves, `jp` does not | 2/16 |
-| `jp` resolves, `bm25` does not | 1/16 |
-| all four arms resolve | 9/16 |
-| only `none` resolves | 0/16 |
+| `jp` resolves, `none` does not | 4/20 |
+| `bm25` resolves, `none` does not | 3/20 |
+| `bm25` resolves, `jp` does not | 3/20 |
+| `jp` resolves, `bm25` does not | 1/20 |
+| all four arms resolve | 9/20 |
+| only `none` resolves | 0/20 |
 
 ### Per-task outcomes
 
@@ -59,42 +56,21 @@ Retrieval arms average `chunk-bm25` ~3993 tokens, `bm25` ~3990 tokens, `jp` ~398
 | ✓ detekt-5516 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-5577 | NOT_APPLIED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-5684 | RESOLVED | NO_ANSWER | RESOLVED | NO_ANSWER |
-| … detekt-6352 | RESOLVED | RESOLVED | RESOLVED | — |
-|   detekt-6443 | — | — | — | — |
-|   detekt-6446 | — | — | — | — |
-|   detekt-7715 | — | — | — | — |
-
-### Not yet complete
-
-| task | status |
-|------|--------|
-| detekt-6352 | partial — missing `jp` |
-| detekt-6443 | not started |
-| detekt-6446 | not started |
-| detekt-7715 | not started |
+| ✓ detekt-6352 | RESOLVED | RESOLVED | RESOLVED | NOT_APPLIED |
+| ✓ detekt-6443 | RESOLVED | RESOLVED | NO_ANSWER | NO_ANSWER |
+| ✓ detekt-6446 | NO_ANSWER | NO_ANSWER | NO_ANSWER | NO_ANSWER |
+| ✓ detekt-7715 | NO_ANSWER | NO_ANSWER | NO_ANSWER | NO_ANSWER |
 <!-- DETEKT_L2_END -->
 
-### Reading detekt so far
+### Reading detekt (final)
 
-**Do not treat a partial sample as a final score.** Several outcomes are `NOT_APPLIED` or
-`NO_ANSWER` rather than verifier failures — a full 20-task sample plus stable API conditions are
-needed before comparing arms.
-
-What the partial data already suggests:
-
-1. **Most detekt fixes do not need retrieval at this budget** — roughly three quarters resolve with
-   the issue alone. That matches Level-1's high recall@4k on detekt and the fact that issues name the
-   misbehaving rule.
-2. **When the floor fails, retrieval often helps** — on the tasks where `none` did not resolve,
-   declaration-level BM25 and `jp` usually fixed them.
-3. **`bm25` has led on resolved count in the partial slice**, but the gap to `jp` is small and includes
-   apply/API noise; declaration-level BM25 without graph expansion is competitive at bodies-only 4k.
-4. **Chunk-RAG ties the floor** and occasionally patches the wrong way (`UNRESOLVED`) where
-   declaration arms succeed — consistent with Level-1 chunk baselines trailing whole-declaration
-   retrieval on detekt.
+Most detekt fixes resolve from the issue alone at this budget (14/20 for `none`). **`bm25` leads at
+16/20 resolved**; `jp` and `chunk-bm25` tie at 14/20. Where the floor failed, retrieval usually
+helped — but several arms ended as `NO_ANSWER` or `NOT_APPLIED` (API/model delivery), not verifier
+failures. Bodies-only packing means these numbers are not the shipped 15% default; see below.
 
 <!-- KTLINT_L2_START -->
-*Ktlint Level 2 has not started. Queued after detekt — separate ledger at `~/.jetpacker-l2-ktlint/`.*
+*Ktlint Level 2 in progress — run `scripts/update-level2-doc.sh ktlint` once the ledger has data.*
 <!-- KTLINT_L2_END -->
 
 Everything below was fixed before the first run, which is the point of writing it down first.
