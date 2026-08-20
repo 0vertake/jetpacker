@@ -33,6 +33,7 @@ fun JavaExec.forwardJetpackerProperties() = listOf(
     "jetpacker.fullTierShare",
     "jetpacker.testShare",
     "jetpacker.patcher",
+    "jetpacker.gradleJavaHome",
 ).forEach {
     providers.gradleProperty(it).orNull?.let { value -> systemProperty(it, value) }
 }
