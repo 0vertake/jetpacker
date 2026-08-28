@@ -127,15 +127,15 @@ engine at three budgets of four. Where the graph is thin, plain text similarity
 is the better instrument. Read
 [`docs/results.md`](docs/results.md) before quoting any of this: 97 of the
 suite's 105 tasks run, keyword search still wins below 2k on the smaller
-repositories, and a better pack has not been shown to produce a better patch.
+repositories, and patch success is measured only on detekt so far (see Level 2 below).
 
 Level 2 is built — judge, certified tasks, arms, prompt, leakage audit — in
-[`docs/level2.md`](docs/level2.md). **63 tasks are certified** (20 detekt, 43
-ktlint). Detekt scoring is **in progress** — refresh with `scripts/update-level2-doc.sh detekt`
-or `scripts/level2-report.sh`. ktlint starts automatically after detekt when
-`scripts/chain-ktlint-after-detekt.sh` is running under `screen`. There is no complete patch table to
-quote yet. What you can put on a CV is in [`docs/plan.md`](docs/plan.md) §10,
-taken only from Level 1.
+[`docs/level2.md`](docs/level2.md). **63 tasks are certified** (20 detekt, 43 ktlint).
+**Detekt L2 is complete** (20/20, bodies-only 4k): `bm25` 16/20 resolved, `jp` 14/20 — see
+[`docs/results.md`](docs/results.md). **Ktlint L2 is running** (43 tasks); resume with
+`scripts/resume-ktlint-l2.sh` under `screen`, or `scripts/resume-ktlint-l2-watch.sh` to
+auto-restart on API failures. Do not quote cross-repo patch-success rates until ktlint finishes.
+CV bullets: [`docs/plan.md`](docs/plan.md) §10 (Level 1 + partial detekt L2).
 
 ## Layout
 

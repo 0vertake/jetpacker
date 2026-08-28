@@ -227,11 +227,12 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 
 ---
 
-## 10. CV bullets (filled from Level 1 only)
+## 10. CV bullets (filled from Level 1; Level 2 partial)
 
-Do not quote a Kotlin Benchmark *score*, a patch-resolved %, or “105 tasks”. 97 of 105 issue
-tasks run; Level 2 has no complete table. Numbers below are Recall@4k of gold *declarations*
-(issue text), `jp:default` unless named, from [`docs/results.md`](results.md).
+Do not quote a Kotlin Benchmark *score*, a patch-resolved % across the full suite, or “105 tasks”.
+97 of 105 issue tasks run at Level 1. **Level 2:** detekt complete (20/20, bodies-only 4k);
+ktlint in progress (43 tasks) — see [`docs/level2.md`](level2.md). Numbers below are Recall@4k of
+gold *declarations* (issue text), `jp:default` unless named, from [`docs/results.md`](results.md).
 
 > **Jetpacker** — Kotlin engine that builds token-budgeted context packs for coding agents from
 > compiler-resolved structure (Kotlin Analysis API / PSI): seeds → typed call graph → personalized
@@ -242,15 +243,19 @@ tasks run; Level 2 has no complete table. Numbers below are Recall@4k of gold *d
 > gold-symbol recall) and leads by a wide margin on ktlint (38.5% vs 5.8%) and ort (51.8% vs 12.4%).
 > Compiler-resolved call edges beat name-matched edges by 1–18 points. Not universal: the engine
 > loses to BM25 on TeXiFy, and to embeddings on dataframe where only 38% of calls resolve.
+>
+> **Level 2 (detekt only, partial):** on 20 certified detekt tasks at 4k bodies-only, patch success
+> is 16/20 for declaration BM25 vs 14/20 for the full engine and no-context floor — one repository,
+> unpinned model; ktlint L2 pending before any patch-success claim generalizes.
 
 One-liner:
 
 > Built a compiler-grade Kotlin context packer (CLI + MCP) and a published retrieval benchmark on
 > Kotlin-SWE-bench showing whole-declaration packs beat chunk RAG on gold-symbol recall@4k on the
-> main suites, with named loss cases, not a patch-success score.
+> main suites, with named loss cases; initial Level-2 patch eval on detekt only (not a full score).
 
 What not to write: “beats RAG”, “SWE-bench score”, “+X% resolved tasks”, “105 tasks”, “Level 2
-shows a better pack produces a better patch”.
+shows a better pack produces a better patch” **until ktlint completes**.
 
 ---
 
