@@ -64,10 +64,49 @@ Retrieval arms average `chunk-bm25` ~3992 tokens, `bm25` ~3988 tokens, `jp` ~398
 
 ### Reading detekt (final)
 
-Most detekt fixes resolve from the issue alone at this budget (14/20 for `none`). **`bm25` leads at
-16/20 resolved**; `jp` and `chunk-bm25` tie at 14/20. Where the floor failed, retrieval usually
-helped — but several arms ended as `NO_ANSWER` or `NOT_APPLIED` (API/model delivery), not verifier
-failures. Bodies-only packing means these numbers are not the shipped 15% default; see below.
+**Sample:** 20 certified detekt tasks, `composer-2.5`, 4000-token budget, **bodies-only** packing
+(`fullTierShare=1.0`). Not the shipped 15% body share; not a pinned model ID. Treat as one
+repository slice, not a Kotlin Benchmark score.
+
+**Headline:** **`bm25` resolves 16/20 (80%)**; `none`, `chunk-bm25`, and `jp` each **14/20 (70%)**.
+Declaration-level BM25 without graph expansion leads on patch success here; the full engine does not
+beat it on this slice.
+
+**The floor is high.** Fourteen of twenty tasks resolve with the issue text alone. That matches
+Level-1: detekt issues name the misbehaving rule, and many fixes are localized. Retrieval is often
+optional at this budget on this repository — not useless, but not required for most tasks.
+
+**Where the floor failed (4 tasks), retrieval usually helped:**
+
+| task | `none` | best retrieval | note |
+|------|--------|----------------|------|
+| 4728 | NO_ANSWER | all three RESOLVED | Issue targets `OutdatedDocumentation`; `jp` pack seeds the rule plus related declarations; chunk pack was mostly unrelated 40-line windows |
+| 4994 | NOT_APPLIED | `bm25`, `jp` RESOLVED | Chunk and floor produced unapplyable diffs; BM25 pack led with `ExplicitCollectionElementAccessMethod` |
+| 5009 | NOT_APPLIED | **`jp` only** RESOLVED | Only graph pack included `UnnecessaryAbstractClass` + test spec; floor patch refactored the wrong layer and did not apply cleanly; chunk patched but **tests failed** |
+| 5577 | NOT_APPLIED | all three RESOLVED | Floor diff did not apply; retrieval packs named the naming rule under test |
+
+**5009** is the one task where **`jp` beat flat `bm25`** on patch success: the fix needed the rule
+implementation and its spec together; BM25 and chunk did not deliver an applyable correct patch.
+
+**Failure modes are not “wrong fixes”:**
+
+| outcome | count (80 arms) | meaning |
+|---------|-------------------|---------|
+| `NOT_APPLIED` | 8 | diff did not apply after three attempts |
+| `NO_ANSWER` | 13 | no diff (includes Cursor API `Network request failed`) |
+| `UNRESOLVED` | 1 | patch applied, verifier failed (`5009` / `chunk-bm25`) |
+
+Tasks **6446** and **7715** are all-`NO_ANSWER` on every arm — backend silence, not retrieval quality.
+**5684** and **6443** show the same flakiness on individual arms while other arms on the same task
+resolved.
+
+**What not to claim from detekt alone:** that `jp` beats RAG on patch success, that Level-1 recall
+transfers to patches, or that bodies-only numbers represent the shipped packer. **Ktlint (43 tasks)**
+is the harder regime (issues name behaviour, median gold rank 80 at L1) and is required before any
+cross-repository L2 conclusion.
+
+Context packs for every arm are under `~/.jetpacker-l2/detekt_detekt-<id>/<arm>.context.md` for
+qualitative replay.
 
 <!-- KTLINT_L2_START -->
 ## Ktlint results (2/43 tasks, bodies-only, 4k)
@@ -85,7 +124,7 @@ failures. Bodies-only packing means these numbers are not the shipped 15% defaul
 | `bm25` | 1/2 (50%) | 1 | 0 | 0 |
 | `jp` | 1/2 (50%) | 1 | 0 | 0 |
 
-Retrieval arms average `chunk-bm25` ~3990 tokens, `bm25` ~3976 tokens, `jp` ~3990 tokens; `none` is 0.
+Retrieval arms average `chunk-bm25` ~3990 tokens, `bm25` ~3981 tokens, `jp` ~3990 tokens; `none` is 0.
 
 ### Pairwise (complete tasks only)
 
@@ -104,7 +143,7 @@ Retrieval arms average `chunk-bm25` ~3990 tokens, `bm25` ~3976 tokens, `jp` ~399
 |------|--------|--------------|--------|------|
 | ✓ ktlint-2029 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ ktlint-2053 | NOT_APPLIED | NOT_APPLIED | NO_ANSWER | NO_ANSWER |
-| … ktlint-2091 | NO_ANSWER | NO_ANSWER | — | — |
+| … ktlint-2091 | NO_ANSWER | NO_ANSWER | RESOLVED | — |
 |   ktlint-2127 | — | — | — | — |
 |   ktlint-2134 | — | — | — | — |
 |   ktlint-2141 | — | — | — | — |
@@ -150,7 +189,7 @@ Retrieval arms average `chunk-bm25` ~3990 tokens, `bm25` ~3976 tokens, `jp` ~399
 
 | task | status |
 |------|--------|
-| ktlint-2091 | partial — missing `bm25`, `jp` |
+| ktlint-2091 | partial — missing `jp` |
 | ktlint-2127 | not started |
 | ktlint-2134 | not started |
 | ktlint-2141 | not started |
@@ -192,6 +231,35 @@ Retrieval arms average `chunk-bm25` ~3990 tokens, `bm25` ~3976 tokens, `jp` ~399
 | ktlint-2950 | not started |
 | ktlint-2983 | not started |
 <!-- KTLINT_L2_END -->
+
+### Reading ktlint (template — fill when 43/43 complete)
+
+**Do not fill until the ledger has all 43 tasks × 4 arms.** Use `scripts/update-level2-doc.sh ktlint`
+for the table, then replace this section.
+
+**Decision tree after ktlint completes:**
+
+| If… | Then write… |
+|-----|-------------|
+| `jp` resolved >> `bm25` >> `none` (e.g. +10 pts on `jp`) | Level-1 recall gap **carries to patches** on the hard suite; graph expansion pays at patch time |
+| `bm25` ≈ `jp` >> `none` | Declaration retrieval helps; **graph expansion does not** add patch success on ktlint |
+| All arms ≈ `none` (high floor) | Same shape as detekt — issues/rules carry enough signal; packs matter less at 4k |
+| `none` often best | Retrieval **hurts** or adds noise — investigate pack content on those tasks |
+| Many `NO_ANSWER` / `NOT_APPLIED` | Report delivery failure rate separately; do not treat as verifier losses |
+
+**Compare to detekt (20/20, bodies-only):** detekt `bm25` 16/20, `jp` 14/20, floor 14/20. ktlint Level-1
+has **lower recall and deeper gold ranks** — if `jp` wins here after losing on detekt, that supports
+“engine helps when keyword seeds miss.” If `bm25` wins again, prefer “declaration retrieval > graph”
+as the L2 story.
+
+**Placeholder summary (update counts):**
+
+| arm | resolved | notes |
+|-----|----------|-------|
+| `none` | _/_ | floor |
+| `chunk-bm25` | _/_ | chunk-RAG baseline |
+| `bm25` | _/_ | declaration BM25 |
+| `jp` | _/_ | full engine |
 
 Everything below was fixed before the first run, which is the point of writing it down first.
 
@@ -319,6 +387,9 @@ screen -dmS jetpacker-l2-chain bash -c 'caffeinate -i scripts/chain-ktlint-after
 # ktlint manually — separate ledger, needs /tmp/ktlint cloned first
 git clone https://github.com/pinterest/ktlint /tmp/ktlint
 screen -dmS jetpacker-l2-ktlint bash -c 'caffeinate -i scripts/resume-ktlint-l2.sh >> ~/.jetpacker-l2/level2-ktlint.log 2>&1'
+
+# auto-restart ktlint on API crash + refresh docs/level2.md every 2 min
+screen -dmS jetpacker-l2-ktlint-watch bash -c 'caffeinate -i scripts/resume-ktlint-l2-watch.sh'
 
 # snapshot the ledger as markdown
 scripts/level2-report.sh

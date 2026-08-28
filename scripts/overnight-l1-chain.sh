@@ -17,7 +17,9 @@ clone() {
 }
 
 run_bench() {
-  local repo=$1 harbor_repo=$2 tasks=$3 cache=$4 extra=("${@:5}")
+  local repo=$1 harbor_repo=$2 tasks=$3 cache=$4
+  shift 4
+  local extra=("$@")
   log "L1 start repo=$harbor_repo tasks=$tasks cache=$cache"
   cd "$root"
   ./gradlew :eval:run -q \
@@ -27,7 +29,7 @@ run_bench() {
     -Pjetpacker.tasks="$tasks" \
     -Pjetpacker.budgets="$budgets" \
     -Pjetpacker.cache="$cache" \
-    "${extra[@]}" >> "$log" 2>&1
+    ${extra[@]+"${extra[@]}"} >> "$log" 2>&1
   log "L1 done repo=$harbor_repo"
 }
 

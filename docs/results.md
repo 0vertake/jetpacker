@@ -331,13 +331,32 @@ away, because whether pack position matters at all is a Level-2 question.
 ## Level 2 (patch success, partial)
 
 Level 1 numbers above ask whether the pack *contains* gold declarations. Level 2 asks whether a
-better pack produces a better *patch* — one model, one shot, verifier decides. Method, arms, and
-partial detekt outcomes live in [`docs/level2.md`](level2.md).
+better pack produces a better *patch* — one model, one shot, verifier decides. Full method and
+tables: [`docs/level2.md`](level2.md).
 
-As of the latest ledger snapshot, detekt is **in progress** (20 certified tasks, bodies-only 4k).
-Refresh the table with `scripts/update-level2-doc.sh detekt`. ktlint (43 tasks) is queued after
-detekt via `scripts/chain-ktlint-after-detekt.sh`. There is no complete patch-resolved table yet —
-do not quote Level-2 win rates until both repositories finish.
+### Detekt (complete, 20/20, bodies-only 4k)
+
+| arm | resolved |
+|-----|----------|
+| `none` | 14/20 (70%) |
+| `chunk-bm25` | 14/20 (70%) |
+| **`bm25`** | **16/20 (80%)** |
+| `jp` | 14/20 (70%) |
+
+Most detekt fixes resolve from the issue alone at this budget. **`bm25` leads by two tasks** over
+the engine and chunk-RAG; graph expansion did not beat flat declaration BM25 on this slice. Four
+tasks needed retrieval when the floor failed; **5009** is the only case where **`jp` alone**
+resolved (rule + test spec in one pack). Thirteen of eighty arms are `NO_ANSWER` (API/model
+delivery) — do not read those as wrong fixes.
+
+This is **one repository**, **bodies-only** packing (not the shipped 15% body share), and an
+unpinned `composer-2.5` agent — not a Kotlin Benchmark leaderboard score.
+
+### Ktlint (in progress, 43 tasks)
+
+Harder Level-1 regime (38.5% recall@4k vs 70.8% on detekt). Running under
+`scripts/resume-ktlint-l2.sh` with auto-resume (`scripts/resume-ktlint-l2-watch.sh`). **Do not
+quote ktlint or cross-repo L2 win rates until 43/43 tasks finish.**
 
 ## Is resolution worth it?
 
