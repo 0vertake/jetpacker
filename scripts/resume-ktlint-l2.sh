@@ -16,13 +16,18 @@ fi
 KTLINT_GRADLE_REF="${JETPACKER_KTLINT_GRADLE_REF:-3fe589643b916ace8414fca50426beafe2dc245f}"
 git -C /tmp/ktlint checkout -q "$KTLINT_GRADLE_REF"
 root="$(cd "$(dirname "$0")/.." && pwd)"
+harbor="${JETPACKER_HARBOR:-/tmp/kotlin-swe-bench/tasks}"
 log="$HOME/.jetpacker-l2/level2-ktlint.log"
 mkdir -p "$HOME/.jetpacker-l2-ktlint"
+if [[ ! -d "$harbor" ]]; then
+  echo "harbor missing: $harbor — clone kotlin-swe-bench first" >&2
+  exit 1
+fi
 cp -f "$HOME/.jetpacker-l2/certified.tsv" "$HOME/.jetpacker-l2-ktlint/certified.tsv"
 echo "[$(date +%H:%M:%S)] resume ktlint Level 2" >> "$log"
 exec java -Xmx6g -Didea.is.unit.test=true -Djava.awt.headless=true \
   -Djetpacker.repo=/tmp/ktlint \
-  -Djetpacker.harbor=/tmp/kotlin-swe-bench/tasks \
+  -Djetpacker.harbor="$harbor" \
   -Djetpacker.harbor.repo=ktlint \
   -Djetpacker.l2="$HOME/.jetpacker-l2-ktlint" \
   -Djetpacker.patcher="$root/eval/src/main/resources/cursor_patch.py" \

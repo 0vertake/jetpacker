@@ -12,7 +12,7 @@ skipped. Refresh tables with `scripts/update-level2-doc.sh detekt|ktlint`.
 <!-- DETEKT_L2_START -->
 ## Detekt results (20/20 tasks, bodies-only, 4k)
 
-*Auto-generated 2026-08-20 from `/Users/milos/.jetpacker-l2/level2.tsv` — run `scripts/update-level2-doc.sh detekt` to refresh.*
+*Auto-generated 2026-08-28 from `/Users/milos/.jetpacker-l2/level2.tsv` — run `scripts/update-level2-doc.sh detekt` to refresh.*
 
 ### Summary
 
@@ -70,7 +70,127 @@ helped — but several arms ended as `NO_ANSWER` or `NOT_APPLIED` (API/model del
 failures. Bodies-only packing means these numbers are not the shipped 15% default; see below.
 
 <!-- KTLINT_L2_START -->
-*Ktlint Level 2 in progress — run `scripts/update-level2-doc.sh ktlint` once the ledger has data.*
+## Ktlint results (2/43 tasks, bodies-only, 4k)
+
+*Auto-generated 2026-08-28 from `/Users/milos/.jetpacker-l2-ktlint/level2.tsv` — run `scripts/update-level2-doc.sh ktlint` to refresh.*
+
+**Ktlint Level 2 is in progress.** 2 of 43 certified tasks have all four arms scored; 40 not started, 1 partial.
+
+### Summary
+
+| arm | resolved | no answer | not applied | unresolved |
+|-----|----------|-----------|-------------|------------|
+| `none` | 1/2 (50%) | 0 | 1 | 0 |
+| `chunk-bm25` | 1/2 (50%) | 0 | 1 | 0 |
+| `bm25` | 1/2 (50%) | 1 | 0 | 0 |
+| `jp` | 1/2 (50%) | 1 | 0 | 0 |
+
+Retrieval arms average `chunk-bm25` ~3990 tokens, `bm25` ~3976 tokens, `jp` ~3990 tokens; `none` is 0.
+
+### Pairwise (complete tasks only)
+
+| comparison | count |
+|------------|-------|
+| `jp` resolves, `none` does not | 0/2 |
+| `bm25` resolves, `none` does not | 0/2 |
+| `bm25` resolves, `jp` does not | 0/2 |
+| `jp` resolves, `bm25` does not | 0/2 |
+| all four arms resolve | 1/2 |
+| only `none` resolves | 0/2 |
+
+### Per-task outcomes
+
+| task | `none` | `chunk-bm25` | `bm25` | `jp` |
+|------|--------|--------------|--------|------|
+| ✓ ktlint-2029 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2053 | NOT_APPLIED | NOT_APPLIED | NO_ANSWER | NO_ANSWER |
+| … ktlint-2091 | NO_ANSWER | NO_ANSWER | — | — |
+|   ktlint-2127 | — | — | — | — |
+|   ktlint-2134 | — | — | — | — |
+|   ktlint-2141 | — | — | — | — |
+|   ktlint-2193 | — | — | — | — |
+|   ktlint-2216 | — | — | — | — |
+|   ktlint-2263 | — | — | — | — |
+|   ktlint-2273 | — | — | — | — |
+|   ktlint-2275 | — | — | — | — |
+|   ktlint-2287 | — | — | — | — |
+|   ktlint-2300 | — | — | — | — |
+|   ktlint-2362 | — | — | — | — |
+|   ktlint-2365 | — | — | — | — |
+|   ktlint-2375 | — | — | — | — |
+|   ktlint-2381 | — | — | — | — |
+|   ktlint-2386 | — | — | — | — |
+|   ktlint-2395 | — | — | — | — |
+|   ktlint-2400 | — | — | — | — |
+|   ktlint-2405 | — | — | — | — |
+|   ktlint-2407 | — | — | — | — |
+|   ktlint-2431 | — | — | — | — |
+|   ktlint-2432 | — | — | — | — |
+|   ktlint-2442 | — | — | — | — |
+|   ktlint-2493 | — | — | — | — |
+|   ktlint-2505 | — | — | — | — |
+|   ktlint-2516 | — | — | — | — |
+|   ktlint-2541 | — | — | — | — |
+|   ktlint-2553 | — | — | — | — |
+|   ktlint-2554 | — | — | — | — |
+|   ktlint-2555 | — | — | — | — |
+|   ktlint-2617 | — | — | — | — |
+|   ktlint-2715 | — | — | — | — |
+|   ktlint-2727 | — | — | — | — |
+|   ktlint-2774 | — | — | — | — |
+|   ktlint-2785 | — | — | — | — |
+|   ktlint-2823 | — | — | — | — |
+|   ktlint-2873 | — | — | — | — |
+|   ktlint-2891 | — | — | — | — |
+|   ktlint-2895 | — | — | — | — |
+|   ktlint-2950 | — | — | — | — |
+|   ktlint-2983 | — | — | — | — |
+
+### Not yet complete
+
+| task | status |
+|------|--------|
+| ktlint-2091 | partial — missing `bm25`, `jp` |
+| ktlint-2127 | not started |
+| ktlint-2134 | not started |
+| ktlint-2141 | not started |
+| ktlint-2193 | not started |
+| ktlint-2216 | not started |
+| ktlint-2263 | not started |
+| ktlint-2273 | not started |
+| ktlint-2275 | not started |
+| ktlint-2287 | not started |
+| ktlint-2300 | not started |
+| ktlint-2362 | not started |
+| ktlint-2365 | not started |
+| ktlint-2375 | not started |
+| ktlint-2381 | not started |
+| ktlint-2386 | not started |
+| ktlint-2395 | not started |
+| ktlint-2400 | not started |
+| ktlint-2405 | not started |
+| ktlint-2407 | not started |
+| ktlint-2431 | not started |
+| ktlint-2432 | not started |
+| ktlint-2442 | not started |
+| ktlint-2493 | not started |
+| ktlint-2505 | not started |
+| ktlint-2516 | not started |
+| ktlint-2541 | not started |
+| ktlint-2553 | not started |
+| ktlint-2554 | not started |
+| ktlint-2555 | not started |
+| ktlint-2617 | not started |
+| ktlint-2715 | not started |
+| ktlint-2727 | not started |
+| ktlint-2774 | not started |
+| ktlint-2785 | not started |
+| ktlint-2823 | not started |
+| ktlint-2873 | not started |
+| ktlint-2891 | not started |
+| ktlint-2895 | not started |
+| ktlint-2950 | not started |
+| ktlint-2983 | not started |
 <!-- KTLINT_L2_END -->
 
 Everything below was fixed before the first run, which is the point of writing it down first.
