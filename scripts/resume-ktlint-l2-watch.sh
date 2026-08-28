@@ -50,6 +50,16 @@ while true; do
     log "L2 not running ($complete/$target_tasks) — restarting resume"
     bash "$root/scripts/resume-ktlint-l2.sh" >> "$HOME/.jetpacker-l2/level2-ktlint.log" 2>&1 || \
       log "resume exited $?"
+  elif [[ -f "$ledger" ]]; then
+    # JVM hung after API crash: process alive but ledger stale for 90+ minutes.
+    stale_sec=$(( $(date +%s) - $(stat -f %m "$ledger" 2>/dev/null || stat -c %Y "$ledger") ))
+    if (( stale_sec > 5400 )); then
+      log "L2 stale (${stale_sec}s since last score) — killing and restarting"
+      pkill -f 'dev.jetpacker.eval.Level2Kt' || true
+      sleep 2
+      bash "$root/scripts/resume-ktlint-l2.sh" >> "$HOME/.jetpacker-l2/level2-ktlint.log" 2>&1 || \
+        log "resume exited $?"
+    fi
   fi
   log "status: $complete/$target_tasks tasks complete"
   sleep "$poll"
