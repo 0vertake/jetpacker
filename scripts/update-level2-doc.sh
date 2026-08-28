@@ -10,7 +10,7 @@ case "$repo" in
     marker="DETEKT_L2"
     ;;
   ktlint)
-    prefix="ktlint_"
+    prefix="pinterest_ktlint-"
     ledger="${LEDGER:-$HOME/.jetpacker-l2-ktlint/level2.tsv}"
     marker="KTLINT_L2"
     ;;
