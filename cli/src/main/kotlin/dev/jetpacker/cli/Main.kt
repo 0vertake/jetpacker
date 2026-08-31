@@ -19,7 +19,7 @@ Usage: packer pack --repo <dir> --task <file|-> [--budget 4000] [--embed-seeds]
        packer serve --repo <dir> [--embed-seeds]
 
   pack   print one pack and exit
-  serve  an MCP server on stdio: get_context_pack and explain_context_pack
+  serve  an MCP server on stdio: get_context_pack, explain_context_pack, callers_of, implementations_of
 
   --repo         a Gradle project to index
   --task         task description; - reads stdin
