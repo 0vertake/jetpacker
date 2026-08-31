@@ -29,6 +29,8 @@ fun JavaExec.forwardJetpackerProperties() = listOf(
     "jetpacker.harbor.repo",
     "jetpacker.embed",
     "jetpacker.l2",
+    "jetpacker.l2.retries",
+    "jetpacker.l2.rerunOutcomes",
     "jetpacker.python",
     "jetpacker.fullTierShare",
     "jetpacker.testShare",
@@ -39,6 +41,14 @@ fun JavaExec.forwardJetpackerProperties() = listOf(
 }
 
 tasks.named<JavaExec>("run") {
+    forwardJetpackerProperties()
+}
+
+tasks.register<JavaExec>("level2join") {
+    group = "verification"
+    description = "Joins Level-2 outcomes with symbol and edit-site recall (no model calls)."
+    mainClass = "dev.jetpacker.eval.Level2JoinKt"
+    classpath = sourceSets["main"].runtimeClasspath
     forwardJetpackerProperties()
 }
 
