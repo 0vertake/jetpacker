@@ -12,6 +12,8 @@ data class Score(
     val fileRecall: Double,
     val callerRecall: Double,
     val ndcg: Double,
+    val editSiteRecall: Double,
+    val editSiteRecallLoose: Double,
     val tokens: Int,
     val goldSize: Int,
 )
@@ -19,16 +21,9 @@ data class Score(
 /**
  * Scores a pack against the declarations the fix touched.
  *
- * [fileRecall] is reported next to [recall] because they fail differently: a retriever can find
- * the right file and still miss the method on it, and knowing which of the two broke is what
- * makes a regression diagnosable.
- *
- * [callerRecall] and [ndcg] answer the two questions plain recall cannot. A pack that holds the
- * method to change but nothing that calls it is not as useful as the number suggests, so §5 asks
- * for the direct callers of gold at half weight. And recall is indifferent to order, while a model
- * reads a pack from the top, so [ndcg] scores where in the pack the gold landed.
+ * Pass [task] to also compute edit-site recall (L1.5). Without it, edit-site fields are zero.
  */
-fun score(index: CodeIndex, pack: Pack, gold: Set<String>): Score {
+fun score(index: CodeIndex, pack: Pack, gold: Set<String>, task: Task? = null): Score {
     val packed = pack.items.mapTo(HashSet()) { it.symbol.id }
     val hits = gold.count { it in packed }
 
@@ -41,6 +36,8 @@ fun score(index: CodeIndex, pack: Pack, gold: Set<String>): Score {
         fileRecall = if (goldFiles.isEmpty()) 0.0 else goldFiles.count { it in packedFiles }.toDouble() / goldFiles.size,
         callerRecall = weightedRecall(pack, gold, callersOf(index, gold)),
         ndcg = ndcg(pack, gold),
+        editSiteRecall = task?.let { editSiteRecall(it, pack, strict = true) } ?: 0.0,
+        editSiteRecallLoose = task?.let { editSiteRecall(it, pack, strict = false) } ?: 0.0,
         tokens = pack.tokens,
         goldSize = gold.size,
     )
@@ -96,6 +93,8 @@ fun List<Score>.mean(): Score = Score(
     fileRecall = map { it.fileRecall }.average(),
     callerRecall = map { it.callerRecall }.average(),
     ndcg = map { it.ndcg }.average(),
+    editSiteRecall = map { it.editSiteRecall }.average(),
+    editSiteRecallLoose = map { it.editSiteRecallLoose }.average(),
     tokens = map { it.tokens }.average().toInt(),
     goldSize = sumOf { it.goldSize },
 )

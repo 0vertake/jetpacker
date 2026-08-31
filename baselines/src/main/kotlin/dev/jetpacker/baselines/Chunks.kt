@@ -66,9 +66,11 @@ internal fun packChunks(chunks: List<Chunk>, order: List<Int>, budget: Int): Pac
         val cost = encoding.countTokens(render(chunk))
         if (spent + cost > budget) continue
         spent += cost
+        val endLine = chunk.startLine + chunk.text.lines().size - 1
+        val why = "chunk:${chunk.file}:${chunk.startLine}:$endLine"
         // The window is what costs tokens, so its declarations are listed at zero: charging each of
         // them again would report a pack several times the size of the text shown.
-        items += chunk.symbols.map { PackItem(it, Fidelity.FULL, "chunk:${chunk.file}", it.signature, 0) }
+        items += chunk.symbols.map { PackItem(it, Fidelity.FULL, why, it.signature, 0) }
     }
     return Pack(items, spent, budget)
 }
