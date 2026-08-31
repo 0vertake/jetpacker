@@ -64,7 +64,7 @@ fun main() {
         val named = namesItsTarget(snapshot.index, task, gold)
         for (retriever in retrievers(snapshot, embedder)) {
             for (budget in budgets) {
-                val scored = score(snapshot.index, retriever.pack(task.text, budget), gold)
+                val scored = score(snapshot.index, retriever.pack(task.text, budget), gold, task)
                 results.getValue(budget).getOrPut(retriever.name) { mutableListOf() } += scored
                 if (budget != headline) continue
                 (if (named) namedSlice else unnamedSlice).getOrPut(retriever.name) { mutableListOf() } += scored
@@ -195,14 +195,15 @@ private fun report(results: Map<String, List<Score>>, skipped: Int) {
     }
     val scored = results.values.first().size
     println("\n$scored tasks scored, $skipped skipped\n")
-    println("| retriever      | recall@budget | +callers | nDCG  | precision | file recall | tokens |")
-    println("|----------------|---------------|----------|-------|-----------|-------------|--------|")
+    println("| retriever      | recall@budget | edit-site | +callers | nDCG  | precision | file recall | tokens |")
+    println("|----------------|---------------|-----------|----------|-------|-----------|-------------|--------|")
     for ((name, scores) in results.entries.sortedBy { it.key }) {
         val mean = scores.mean()
         println(
-            "| %-14s | %13s | %8s | %5.3f | %9s | %11s | %6d |".format(
+            "| %-14s | %13s | %9s | %8s | %5.3f | %9s | %11s | %6d |".format(
                 name,
                 percent(mean.recall),
+                percent(mean.editSiteRecall),
                 percent(mean.callerRecall),
                 mean.ndcg,
                 percent(mean.precision),
