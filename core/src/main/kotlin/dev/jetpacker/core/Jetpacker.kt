@@ -26,14 +26,17 @@ class Jetpacker(
     private val fullTierShare: Double = Packer.DEFAULT_FULL_TIER_SHARE,
     private val testShare: Double = Packer.DEFAULT_TEST_SHARE,
     private val seeds: Int = DEFAULT_SEEDS,
-    testPenalty: Double = SeedFinder.DEFAULT_TEST_PENALTY,
+    private val testPenalty: Double = SeedFinder.DEFAULT_TEST_PENALTY,
     dense: DenseSeeds? = null,
 ) : Retriever {
     private val seedFinder = SeedFinder(index, testPenalty, dense)
     private val ranker = Ranker(index, weights)
 
-    override fun pack(task: String, budget: Int): Pack =
-        Packer(index, repoRoot, budget, fullTierShare, testShare).pack(ranked(task))
+    override fun pack(task: String, budget: Int): Pack {
+        val protected = seedFinder.search(task, seeds, testPenalty).map { index.symbols[it].id }
+        return Packer(index, repoRoot, budget, fullTierShare, testShare)
+            .pack(ranked(task), protected)
+    }
 
     /** The ranking before the budget is applied — what diagnostics need to separate the stages. */
     fun ranked(task: String): List<Ranked> = ranker.rank(seedFinder.find(task, seeds))

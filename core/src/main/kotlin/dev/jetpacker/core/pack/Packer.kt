@@ -58,17 +58,24 @@ class Packer(
     private val members: Map<String, List<String>> = contains.groupBy({ it.from }, { it.to })
     private val owner: Map<String, String> = contains.associate { it.to to it.from }
 
-    fun pack(ranked: List<Ranked>): Pack {
+    fun pack(ranked: List<Ranked>, protected: List<String> = emptyList()): Pack {
         val candidates = ranked.take(CANDIDATES)
         // Section titles and the summary line are also tokens the model pays for.
         val overhead = encoding.countTokens(header(budget, budget, candidates.size, index.coverage)) + SECTION_OVERHEAD
-        val rankOf = candidates.withIndex().associate { (at, candidate) -> candidate.symbol.id to at }
+        val rankOf = candidates.withIndex().associate { (at, candidate) -> candidate.symbol.id to at }.toMutableMap()
+        protected.forEachIndexed { at, id -> rankOf.putIfAbsent(id, -protected.size + at) }
         val selection = Selection()
 
         // Bodies first, under their own sub-budget, so the tail of the ranking still gets to
         // contribute signatures instead of being crowded out by whatever ranked highest.
         val spendable = (budget - overhead).coerceAtLeast(0)
         val fullBudget = (spendable * fullTierShare).toInt()
+        for (id in protected) {
+            val candidate = candidates.find { it.symbol.id == id }
+                ?: index.byId[id]?.let { Ranked(it, 0.0, "seed:protected") }
+                ?: continue
+            selection.force(candidate, fullBudget, spendable)
+        }
         byDensity(candidates, Fidelity.FULL).forEach { selection.consider(it, Fidelity.FULL, fullBudget) }
         byDensity(candidates, Fidelity.STUB).forEach { selection.consider(it, Fidelity.STUB, spendable) }
 
@@ -127,6 +134,19 @@ class Packer(
             taken[id] = item
             group?.let { headed += it }
             spent += cost - refund
+        }
+
+        /** Lexical hits the graph might rank below the candidate cap — reserve them before greedy fill. */
+        fun force(candidate: Ranked, fullBudget: Int, spendable: Int) {
+            if (candidate.symbol.id in taken) return
+            if (tryAdd(candidate, Fidelity.FULL, fullBudget)) return
+            tryAdd(candidate, Fidelity.STUB, spendable)
+        }
+
+        private fun tryAdd(candidate: Ranked, fidelity: Fidelity, limit: Int): Boolean {
+            val before = candidate.symbol.id in taken
+            consider(candidate, fidelity, limit)
+            return !before && candidate.symbol.id in taken
         }
 
         /** Null for bodies, which carry their own path; stubs share one heading per file per section. */
