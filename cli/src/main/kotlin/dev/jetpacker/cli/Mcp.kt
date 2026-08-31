@@ -1,6 +1,9 @@
 package dev.jetpacker.cli
 
 import dev.jetpacker.core.Retriever
+import dev.jetpacker.core.graph.GraphQuery
+import dev.jetpacker.core.index.CodeIndex
+import dev.jetpacker.core.index.Symbol
 import dev.jetpacker.core.pack.Pack
 import dev.jetpacker.core.pack.toMarkdown
 import kotlinx.serialization.json.Json
@@ -39,7 +42,7 @@ fun serve(repo: Path, embedSeeds: Boolean = false) {
     val packer = liveJetpacker(repo, embedSeeds)
     System.err.println("indexed ${packer().index.symbols.size} declarations; ready")
 
-    McpServer(packer).serve(System.`in`.bufferedReader(), protocol)
+    McpServer({ packer() }, { packer().index }).serve(System.`in`.bufferedReader(), protocol)
 }
 
 /**
@@ -51,8 +54,13 @@ fun serve(repo: Path, embedSeeds: Boolean = false) {
  * dies at the first `channel.close()` with a `NoSuchMethodError`. Against that, two tools over four
  * methods of a well-specified protocol is the smaller thing to own.
  */
-internal class McpServer(private val packer: () -> Retriever) {
-    constructor(packer: Retriever) : this({ packer })
+internal class McpServer(
+    private val packer: () -> Retriever,
+    private val index: () -> CodeIndex,
+) {
+    constructor(packer: Retriever, index: CodeIndex) : this({ packer }, { index })
+    constructor(packer: Retriever) : this({ packer }, { error("graph queries need a CodeIndex") })
+    constructor(packer: () -> Retriever) : this(packer, { error("graph queries need a CodeIndex") })
 
     fun serve(input: BufferedReader, output: PrintWriter) {
         for (line in input.lineSequence()) {
@@ -107,6 +115,8 @@ internal class McpServer(private val packer: () -> Retriever) {
             when (tool) {
                 PACK_TOOL_NAME -> contextPack(packer(), arguments)
                 EXPLAIN_TOOL_NAME -> explainPack(packer(), arguments)
+                CALLERS_TOOL_NAME -> callersTool(index(), arguments)
+                IMPLEMENTATIONS_TOOL_NAME -> implementationsTool(index(), arguments)
                 else -> return failure(id, INVALID_PARAMS, "unknown tool: $tool")
             },
         )
@@ -133,6 +143,12 @@ internal fun contextPack(packer: Retriever, arguments: JsonObject?): JsonObject 
 internal fun explainPack(packer: Retriever, arguments: JsonObject?): JsonObject =
     withPack(packer, arguments) { encode(explained(it)) }
 
+internal fun callersTool(index: CodeIndex, arguments: JsonObject?): JsonObject =
+    graphTool(index, arguments, GraphQuery::callersOf, "caller")
+
+internal fun implementationsTool(index: CodeIndex, arguments: JsonObject?): JsonObject =
+    graphTool(index, arguments, GraphQuery::implementationsOf, "implementation")
+
 private fun withPack(packer: Retriever, arguments: JsonObject?, render: (Pack) -> String): JsonObject {
     val task = (arguments?.get("task") as? JsonPrimitive)?.contentOrNull
     if (task.isNullOrBlank()) return failed("`task` is required and must not be empty")
@@ -143,6 +159,41 @@ private fun withPack(packer: Retriever, arguments: JsonObject?, render: (Pack) -
     val pack = runCatching { packer.pack(task, budget) }
         .getOrElse { return failed("packing failed: ${it.message ?: it::class.simpleName}") }
     return text(render(pack), isError = false)
+}
+
+private fun graphTool(
+    index: CodeIndex,
+    arguments: JsonObject?,
+    lookup: (CodeIndex, String) -> List<Symbol>,
+    role: String,
+): JsonObject {
+    val symbol = (arguments?.get("symbol") as? JsonPrimitive)?.contentOrNull
+    if (symbol.isNullOrBlank()) return failed("`symbol` is required and must not be empty")
+
+    val hits = runCatching { lookup(index, symbol) }
+        .getOrElse { return failed("lookup failed: ${it.message ?: it::class.simpleName}") }
+    if (hits.isEmpty()) return text("no $role found for `$symbol`", isError = false)
+
+    return text(encode(graphHits(symbol, role, hits)), isError = false)
+}
+
+private fun graphHits(query: String, role: String, symbols: List<Symbol>) = buildJsonObject {
+    put("query", query)
+    put("role", role)
+    put("count", symbols.size)
+    putJsonArray("symbols") {
+        for (symbol in symbols) {
+            add(
+                buildJsonObject {
+                    put("id", symbol.id)
+                    put("name", symbol.name)
+                    put("file", symbol.file)
+                    put("line", symbol.startLine)
+                    put("signature", symbol.signature)
+                },
+            )
+        }
+    }
 }
 
 /** Ids, paths, `why`, and diagnostics — the briefing without the bodies. */
@@ -211,6 +262,8 @@ private fun encode(message: JsonObject) = Json.encodeToString(JsonObject.seriali
 
 private const val PACK_TOOL_NAME = "get_context_pack"
 private const val EXPLAIN_TOOL_NAME = "explain_context_pack"
+private const val CALLERS_TOOL_NAME = "callers_of"
+private const val IMPLEMENTATIONS_TOOL_NAME = "implementations_of"
 
 private val PACK_TOOL = tool(
     PACK_TOOL_NAME,
@@ -226,7 +279,17 @@ private val EXPLAIN_TOOL = tool(
         "those files. Use this to audit a pack.",
 )
 
-private val TOOLS = listOf(PACK_TOOL, EXPLAIN_TOOL)
+private val CALLERS_TOOL = symbolTool(
+    CALLERS_TOOL_NAME,
+    "Resolved callers of a declaration — symbols that call the named target.",
+)
+
+private val IMPLEMENTATIONS_TOOL = symbolTool(
+    IMPLEMENTATIONS_TOOL_NAME,
+    "Resolved implementations of a type — classes that extend or override the named target.",
+)
+
+private val TOOLS = listOf(PACK_TOOL, EXPLAIN_TOOL, CALLERS_TOOL, IMPLEMENTATIONS_TOOL)
 
 private fun tool(name: String, description: String) = buildJsonObject {
     put("name", name)
@@ -244,6 +307,21 @@ private fun tool(name: String, description: String) = buildJsonObject {
             }
         }
         putJsonArray("required") { add("task") }
+    }
+}
+
+private fun symbolTool(name: String, description: String) = buildJsonObject {
+    put("name", name)
+    put("description", description)
+    putJsonObject("inputSchema") {
+        put("type", "object")
+        putJsonObject("properties") {
+            putJsonObject("symbol") {
+                put("type", "string")
+                put("description", "Symbol id, fqName, or simple name to look up")
+            }
+        }
+        putJsonArray("required") { add("symbol") }
     }
 }
 
