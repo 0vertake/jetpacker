@@ -70,13 +70,15 @@ class Packer(
         // contribute signatures instead of being crowded out by whatever ranked highest.
         val spendable = (budget - overhead).coerceAtLeast(0)
         val fullBudget = (spendable * fullTierShare).toInt()
+        val protectedSet = protected.toSet()
         for (id in protected) {
             val candidate = candidates.find { it.symbol.id == id }
                 ?: index.byId[id]?.let { Ranked(it, 0.0, "seed:protected") }
                 ?: continue
             selection.force(candidate, fullBudget, spendable)
         }
-        byDensity(candidates, Fidelity.FULL).forEach { selection.consider(it, Fidelity.FULL, fullBudget) }
+        val bodyCandidates = candidates.filter { lexical(it, protectedSet) }
+        byDensity(bodyCandidates, Fidelity.FULL).forEach { selection.consider(it, Fidelity.FULL, fullBudget) }
         byDensity(candidates, Fidelity.STUB).forEach { selection.consider(it, Fidelity.STUB, spendable) }
 
         val items = selection.taken.values.sortedWith(
@@ -172,6 +174,10 @@ class Packer(
             compareByDescending<Ranked> { it.score / estimate(it.symbol, fidelity) }
                 .thenBy { it.symbol.id },
         )
+
+    /** Lexical seeds get bodies; graph neighbors stay signatures unless protected forced a body. */
+    private fun lexical(candidate: Ranked, protected: Set<String>): Boolean =
+        candidate.symbol.id in protected || candidate.why.startsWith("seed")
 
     /** Ordering only; every packed item is counted exactly. */
     private fun estimate(symbol: Symbol, fidelity: Fidelity): Double = when (fidelity) {
