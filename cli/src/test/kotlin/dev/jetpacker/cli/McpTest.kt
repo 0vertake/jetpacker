@@ -2,6 +2,10 @@ package dev.jetpacker.cli
 
 import dev.jetpacker.core.Retriever
 import dev.jetpacker.core.index.CompileError
+import dev.jetpacker.core.index.Edge
+import dev.jetpacker.core.index.EdgeKind
+import dev.jetpacker.core.index.CodeIndex
+import dev.jetpacker.core.index.ResolutionCoverage
 import dev.jetpacker.core.index.Symbol
 import dev.jetpacker.core.index.SymbolKind
 import dev.jetpacker.core.pack.Fidelity
@@ -44,16 +48,24 @@ class McpTest {
     }
 
     @Test
-    fun `advertises both tools with the same required argument`() {
+    fun `advertises pack tools with task and graph tools with symbol`() {
         val listed = call("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")["tools"]!!.jsonArray
         assertEquals(
-            listOf("get_context_pack", "explain_context_pack"),
+            listOf("get_context_pack", "explain_context_pack", "callers_of", "implementations_of"),
             listed.map { it.jsonObject.string("name") },
         )
-        for (tool in listed) {
+        for (name in listOf("get_context_pack", "explain_context_pack")) {
+            val tool = listed.single { it.jsonObject.string("name") == name }.jsonObject
             assertEquals(
                 listOf("task"),
-                tool.jsonObject["inputSchema"]!!.jsonObject["required"]!!.jsonArray.map { it.jsonPrimitive.content },
+                tool["inputSchema"]!!.jsonObject["required"]!!.jsonArray.map { it.jsonPrimitive.content },
+            )
+        }
+        for (name in listOf("callers_of", "implementations_of")) {
+            val tool = listed.single { it.jsonObject.string("name") == name }.jsonObject
+            assertEquals(
+                listOf("symbol"),
+                tool["inputSchema"]!!.jsonObject["required"]!!.jsonArray.map { it.jsonPrimitive.content },
             )
         }
     }
@@ -221,6 +233,28 @@ class McpTest {
     }
 
     @Test
+    fun `callers_of returns resolved callers as JSON`() {
+        val target = symbol("fixture.Rule", "Rule")
+        val caller = symbol("fixture.Runner", "Runner")
+        val index = CodeIndex(
+            symbols = listOf(target, caller),
+            edges = listOf(Edge(caller.id, target.id, EdgeKind.CALLS)),
+            coverage = ResolutionCoverage(1, 1, 1),
+        )
+
+        val result = call(
+            """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"callers_of",""" +
+                """"arguments":{"symbol":"Rule"}}}""",
+            index = index,
+        )
+
+        assertEquals(false, result["isError"]!!.jsonPrimitive.boolean)
+        val body = Json.parseToJsonElement(result.text()).jsonObject
+        assertEquals(1, body["count"]!!.jsonPrimitive.int)
+        assertEquals("fixture.Runner", body["symbols"]!!.jsonArray.single().jsonObject.string("id"))
+    }
+
+    @Test
     fun `serves requests until the client closes the stream`() {
         val written = StringWriter()
 
@@ -266,12 +300,31 @@ class McpTest {
         }
     }
 
-    private fun respond(request: String, packer: Retriever = Recording()): JsonObject =
-        Json.parseToJsonElement(McpServer(packer).respond(request)!!).jsonObject
+    private fun symbol(id: String, name: String) = Symbol(
+        id = id,
+        fqName = id,
+        name = name,
+        kind = SymbolKind.CLASS,
+        file = "src/$name.kt",
+        startLine = 1,
+        endLine = 3,
+        signature = "class $name",
+        doc = null,
+        tokens = 4,
+        isTest = false,
+    )
+
+    private fun respond(request: String, packer: Retriever = Recording(), index: CodeIndex? = null): JsonObject =
+        Json.parseToJsonElement(
+            when (index) {
+                null -> McpServer(packer).respond(request)!!
+                else -> McpServer(packer, index).respond(request)!!
+            },
+        ).jsonObject
 
     /** The `result` of a successful call; a test that wanted an error asks for it by name. */
-    private fun call(request: String, packer: Retriever = Recording()): JsonObject =
-        respond(request, packer)["result"]!!.jsonObject
+    private fun call(request: String, packer: Retriever = Recording(), index: CodeIndex? = null): JsonObject =
+        respond(request, packer, index)["result"]!!.jsonObject
 
     private fun JsonObject.string(key: String) = this[key]!!.jsonPrimitive.content
 
