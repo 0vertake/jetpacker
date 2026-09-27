@@ -1,6 +1,4 @@
 # Jetpacker
-> Working name. A context packer for AI coding agents, built on compiler-grade
-> Kotlin code structure — plus the benchmark that proves (or disproves) it helps.
 
 ## What
 
