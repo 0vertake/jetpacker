@@ -1,7 +1,4 @@
 # Jetpacker
-
-[![CI](https://github.com/0vertake/jetpacker/actions/workflows/ci.yml/badge.svg)](https://github.com/0vertake/jetpacker/actions/workflows/ci.yml)
-
 > Working name. A context packer for AI coding agents, built on compiler-grade
 > Kotlin code structure — plus the benchmark that proves (or disproves) it helps.
 
