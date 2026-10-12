@@ -296,8 +296,20 @@ class AnalysisApiIndexer(
                 ?.trim(),
             tokens = encoding.countTokens(text),
             isTest = isTest,
+            identifiers = identifiersOf(text),
         )
     }
+
+    /**
+     * CamelCase-split tokens from the declaration body for BM25. Names and signatures are indexed
+     * separately at higher weight; this only has to catch issue vocabulary that lives in the body.
+     */
+    private fun identifiersOf(text: String): String =
+        BODY_TOKEN.findAll(text)
+            .map { it.value.lowercase() }
+            .filter { it.length > 2 }
+            .distinct()
+            .joinToString(" ")
 
     /**
      * Identity that survives overloading: the FQN alone collapses `format(Int)` and
@@ -432,5 +444,6 @@ class AnalysisApiIndexer(
     private companion object {
         const val UNRESOLVED = "?"
         const val ERRORS_PER_FILE = 20
+        private val BODY_TOKEN = Regex("""[A-Z]+(?![a-z])|[A-Z][a-z0-9]*|[a-z0-9]+""")
     }
 }

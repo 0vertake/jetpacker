@@ -65,7 +65,7 @@ def pairwise(pred):
 
 lines = []
 title = label.capitalize()
-status = "complete" if n == len(cert) and not pending else "in progress"
+status = "complete" if n == len(cert) and not pending else "incomplete"
 lines.append(f"## {title} results ({n}/{len(cert)} tasks, bodies-only, 4k)")
 lines.append("")
 lines.append(
@@ -73,9 +73,9 @@ lines.append(
     f"run `scripts/update-level2-doc.sh {label}` to refresh.*"
 )
 lines.append("")
-if status == "in progress":
+if status == "incomplete":
     lines.append(
-        f"**{title} Level 2 is in progress.** {n} of {len(cert)} certified tasks have all "
+        f"**{title} Level 2 is incomplete.** {n} of {len(cert)} certified tasks have all "
         f"four arms scored; {len(pending)} not started, {len(partial)} partial."
     )
     lines.append("")

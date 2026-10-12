@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
 class PipelineTest {
     @Test
     fun `reaches an implementation the task never mentions`() {
-        val pack = Jetpacker(injectionRoot, injection).pack(INJECTION_TASK)
+        val pack = Jetpacker(injectionRoot, injection, weights = IMPL_WEIGHTS).pack(INJECTION_TASK)
         val adapter = pack.items.singleOrNull { it.symbol.id == "fixture.injection.StripeAdapter" }
 
         assertTrue(
@@ -35,6 +35,18 @@ class PipelineTest {
             "impl-of:PaymentGateway",
             adapter.why,
             "StripeAdapter shares no vocabulary with the task, so only the graph can explain it",
+        )
+    }
+
+    @Test
+    fun `without structural expansion the implementation is never found`() {
+        val ranked = Ranker(injection, EdgeWeights().none())
+            .rank(SeedFinder(injection).find(INJECTION_TASK))
+
+        assertTrue(
+            ranked.none { it.symbol.id == "fixture.injection.StripeAdapter" },
+            "this is the headline ablation's OFF arm: without edges the implementation is " +
+                "unreachable, got ${ranked.map { it.symbol.id }}",
         )
     }
 
@@ -147,22 +159,18 @@ class PipelineTest {
         assertTrue("missing" in markdown, markdown)
     }
 
-    @Test
-    fun `without structural expansion the implementation is never found`() {
-        val ranked = Ranker(injection, EdgeWeights().none())
-            .rank(SeedFinder(injection).find(INJECTION_TASK))
-
-        assertTrue(
-            ranked.none { it.symbol.id == "fixture.injection.StripeAdapter" },
-            "this is the headline ablation's OFF arm: without edges the implementation is " +
-                "unreachable, got ${ranked.map { it.symbol.id }}",
-        )
-    }
-
     private fun packer() = Jetpacker(root, index)
 
     private companion object {
         const val INJECTION_TASK = "`PaymentGateway` rejects amounts it should accept"
+
+        /** The default walk leaves these at 0. This test still checks the edge works when asked. */
+        val IMPL_WEIGHTS = EdgeWeights(
+            extends = 0.8,
+            extendedBy = 1.0,
+            overrides = 0.8,
+            overriddenBy = 1.0,
+        )
 
         fun fixture(name: String): Path =
             Path.of(requireNotNull(PipelineTest::class.java.getResource("/fixtures/$name")).toURI())

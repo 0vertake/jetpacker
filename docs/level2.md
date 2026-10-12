@@ -4,24 +4,25 @@ Level 1 asks whether a pack contains the declarations a fix touched. Level 2 ask
 reader actually cares about: **does a better pack produce a better patch?** One model, one prompt,
 one shot, and the suite's own tests decide.
 
-**Detekt Level 2 is complete** (20/20 certified tasks, `composer-2.5`, 4k, bodies-only). **Ktlint Level 2
-is in progress** (43 tasks). Ledgers: `~/.jetpacker-l2/level2.tsv` (detekt),
-`~/.jetpacker-l2-ktlint/level2.tsv` (ktlint). Resume is safe — already-scored `(task, arm)` pairs are
-skipped. Refresh tables with `scripts/update-level2-doc.sh detekt|ktlint`.
+**Detekt Level 2 is complete** (20/20 certified tasks, `composer-2.5`, 4k, bodies-only). **Ktlint
+Level 2 is incomplete** (25/43 tasks with all four arms in the ledger as of the last refresh).
+Ledgers: `~/.jetpacker-l2/level2.tsv` (detekt), `~/.jetpacker-l2-ktlint/level2.tsv` (ktlint).
+Already-scored `(task, arm)` pairs are skipped on resume. Refresh auto-generated tables with
+`scripts/update-level2-doc.sh detekt|ktlint`.
 
 <!-- DETEKT_L2_START -->
 ## Detekt results (20/20 tasks, bodies-only, 4k)
 
-*Auto-generated 2026-08-28 from `/Users/milos/.jetpacker-l2/level2.tsv` — run `scripts/update-level2-doc.sh detekt` to refresh.*
+*Auto-generated 2026-09-14 from `/Users/milos/.jetpacker-l2/level2.tsv` — run `scripts/update-level2-doc.sh detekt` to refresh.*
 
 ### Summary
 
 | arm | resolved | no answer | not applied | unresolved |
 |-----|----------|-----------|-------------|------------|
-| `none` | 14/20 (70%) | 3 | 3 | 0 |
-| `chunk-bm25` | 14/20 (70%) | 3 | 2 | 1 |
-| `bm25` | 16/20 (80%) | 3 | 1 | 0 |
-| `jp` | 14/20 (70%) | 4 | 2 | 0 |
+| `none` | 16/20 (80%) | 0 | 4 | 0 |
+| `chunk-bm25` | 17/20 (85%) | 0 | 2 | 1 |
+| `bm25` | 19/20 (95%) | 0 | 1 | 0 |
+| `jp` | 20/20 (100%) | 0 | 0 | 0 |
 
 Retrieval arms average `chunk-bm25` ~3992 tokens, `bm25` ~3988 tokens, `jp` ~3987 tokens; `none` is 0.
 
@@ -31,235 +32,173 @@ Retrieval arms average `chunk-bm25` ~3992 tokens, `bm25` ~3988 tokens, `jp` ~398
 |------------|-------|
 | `jp` resolves, `none` does not | 4/20 |
 | `bm25` resolves, `none` does not | 3/20 |
-| `bm25` resolves, `jp` does not | 3/20 |
+| `bm25` resolves, `jp` does not | 0/20 |
 | `jp` resolves, `bm25` does not | 1/20 |
-| all four arms resolve | 9/20 |
+| all four arms resolve | 16/20 |
 | only `none` resolves | 0/20 |
 
 ### Per-task outcomes
 
 | task | `none` | `chunk-bm25` | `bm25` | `jp` |
 |------|--------|--------------|--------|------|
-| ✓ detekt-4205 | RESOLVED | NOT_APPLIED | RESOLVED | RESOLVED |
+| ✓ detekt-4205 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-4249 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
-| ✓ detekt-4728 | NO_ANSWER | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-4728 | NOT_APPLIED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-4733 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-4738 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-4808 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
-| ✓ detekt-4818 | RESOLVED | RESOLVED | RESOLVED | NOT_APPLIED |
+| ✓ detekt-4818 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-4994 | NOT_APPLIED | NOT_APPLIED | RESOLVED | RESOLVED |
 | ✓ detekt-5006 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
-| ✓ detekt-5009 | NOT_APPLIED | UNRESOLVED | NOT_APPLIED | RESOLVED |
+| ✓ detekt-5009 | NOT_APPLIED | UNRESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-5252 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-5352 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-5459 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 | ✓ detekt-5516 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
-| ✓ detekt-5577 | NOT_APPLIED | RESOLVED | RESOLVED | RESOLVED |
-| ✓ detekt-5684 | RESOLVED | NO_ANSWER | RESOLVED | NO_ANSWER |
-| ✓ detekt-6352 | RESOLVED | RESOLVED | RESOLVED | NOT_APPLIED |
-| ✓ detekt-6443 | RESOLVED | RESOLVED | NO_ANSWER | NO_ANSWER |
-| ✓ detekt-6446 | NO_ANSWER | NO_ANSWER | NO_ANSWER | NO_ANSWER |
-| ✓ detekt-7715 | NO_ANSWER | NO_ANSWER | NO_ANSWER | NO_ANSWER |
+| ✓ detekt-5577 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-5684 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-6352 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-6443 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-6446 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ detekt-7715 | NOT_APPLIED | NOT_APPLIED | NOT_APPLIED | RESOLVED |
 <!-- DETEKT_L2_END -->
 
-### Reading detekt (final)
+### Reading detekt
 
 **Sample:** 20 certified detekt tasks, `composer-2.5`, 4000-token budget, **bodies-only** packing
-(`fullTierShare=1.0`). Not the shipped 15% body share; not a pinned model ID. Treat as one
-repository slice, not a Kotlin Benchmark score.
+(`fullTierShare=1.0`). Not the shipped 15% body share. One repository slice — not a Kotlin
+Benchmark score.
 
-**Headline:** **`bm25` resolves 16/20 (80%)**; `none`, `chunk-bm25`, and `jp` each **14/20 (70%)**.
-Declaration-level BM25 without graph expansion leads on patch success here; the full engine does not
-beat it on this slice.
+**Headline (ledger 2026-09-14):** `jp` 20/20, `bm25` 19/20, `chunk-bm25` 17/20, `none` 16/20.
+The no-context floor is 80%. Absolute rates are high for every arm; the gap between declaration
+BM25 and the full engine is one task on this slice.
 
-**The floor is high.** Fourteen of twenty tasks resolve with the issue text alone. That matches
-Level-1: detekt issues name the misbehaving rule, and many fixes are localized. Retrieval is often
-optional at this budget on this repository — not useless, but not required for most tasks.
+**Where the floor failed**, retrieval usually helped (`4728`, `4994`, `5009`, `7715` in the current
+table). Early in the run, delivery noise (`NO_ANSWER` / `NOT_APPLIED`) was common; later retries
+and apply hardening changed some outcomes. Treat residual apply failures as delivery, not as
+“wrong retrieval.”
 
-**Where the floor failed (4 tasks), retrieval usually helped:**
-
-| task | `none` | best retrieval | note |
-|------|--------|----------------|------|
-| 4728 | NO_ANSWER | all three RESOLVED | Issue targets `OutdatedDocumentation`; `jp` pack seeds the rule plus related declarations; chunk pack was mostly unrelated 40-line windows |
-| 4994 | NOT_APPLIED | `bm25`, `jp` RESOLVED | Chunk and floor produced unapplyable diffs; BM25 pack led with `ExplicitCollectionElementAccessMethod` |
-| 5009 | NOT_APPLIED | **`jp` only** RESOLVED | Only graph pack included `UnnecessaryAbstractClass` + test spec; floor patch refactored the wrong layer and did not apply cleanly; chunk patched but **tests failed** |
-| 5577 | NOT_APPLIED | all three RESOLVED | Floor diff did not apply; retrieval packs named the naming rule under test |
-
-**5009** is the one task where **`jp` beat flat `bm25`** on patch success: the fix needed the rule
-implementation and its spec together; BM25 and chunk did not deliver an applyable correct patch.
-
-**Failure modes are not “wrong fixes”:**
-
-| outcome | count (80 arms) | meaning |
-|---------|-------------------|---------|
-| `NOT_APPLIED` | 8 | diff did not apply after three attempts |
-| `NO_ANSWER` | 13 | no diff (includes Cursor API `Network request failed`) |
-| `UNRESOLVED` | 1 | patch applied, verifier failed (`5009` / `chunk-bm25`) |
-
-Tasks **6446** and **7715** are all-`NO_ANSWER` on every arm — backend silence, not retrieval quality.
-**5684** and **6443** show the same flakiness on individual arms while other arms on the same task
-resolved.
-
-**What not to claim from detekt alone:** that `jp` beats RAG on patch success, that Level-1 recall
-transfers to patches, or that bodies-only numbers represent the shipped packer. **Ktlint (43 tasks)**
-is the harder regime (issues name behaviour, median gold rank 80 at L1) and is required before any
-cross-repository L2 conclusion.
+**Limits:** these numbers do not show that Level-1 recall transfers to patches in general, do not
+represent the shipped body share, and do not generalize past detekt without a finished ktlint
+ledger.
 
 Context packs for every arm are under `~/.jetpacker-l2/detekt_detekt-<id>/<arm>.context.md` for
 qualitative replay.
 
 <!-- KTLINT_L2_START -->
-## Ktlint results (2/43 tasks, bodies-only, 4k)
+## Ktlint results (25/43 tasks, bodies-only, 4k)
 
-*Auto-generated 2026-08-28 from `/Users/milos/.jetpacker-l2-ktlint/level2.tsv` — run `scripts/update-level2-doc.sh ktlint` to refresh.*
+*Auto-generated 2026-09-14 from `/Users/milos/.jetpacker-l2-ktlint/level2.tsv` — run `scripts/update-level2-doc.sh ktlint` to refresh.*
 
-**Ktlint Level 2 is in progress.** 2 of 43 certified tasks have all four arms scored; 40 not started, 1 partial.
+**Ktlint Level 2 is incomplete.** 25 of 43 certified tasks have all four arms scored; 2 not started, 16 partial.
 
 ### Summary
 
 | arm | resolved | no answer | not applied | unresolved |
 |-----|----------|-----------|-------------|------------|
-| `none` | 1/2 (50%) | 0 | 1 | 0 |
-| `chunk-bm25` | 1/2 (50%) | 0 | 1 | 0 |
-| `bm25` | 1/2 (50%) | 1 | 0 | 0 |
-| `jp` | 1/2 (50%) | 1 | 0 | 0 |
+| `none` | 23/25 (92%) | 0 | 0 | 2 |
+| `chunk-bm25` | 25/25 (100%) | 0 | 0 | 0 |
+| `bm25` | 25/25 (100%) | 0 | 0 | 0 |
+| `jp` | 23/25 (92%) | 0 | 0 | 2 |
 
-Retrieval arms average `chunk-bm25` ~3990 tokens, `bm25` ~3981 tokens, `jp` ~3990 tokens; `none` is 0.
+Retrieval arms average `chunk-bm25` ~3989 tokens, `bm25` ~3988 tokens, `jp` ~3985 tokens; `none` is 0.
 
 ### Pairwise (complete tasks only)
 
 | comparison | count |
 |------------|-------|
-| `jp` resolves, `none` does not | 0/2 |
-| `bm25` resolves, `none` does not | 0/2 |
-| `bm25` resolves, `jp` does not | 0/2 |
-| `jp` resolves, `bm25` does not | 0/2 |
-| all four arms resolve | 1/2 |
-| only `none` resolves | 0/2 |
+| `jp` resolves, `none` does not | 2/25 |
+| `bm25` resolves, `none` does not | 2/25 |
+| `bm25` resolves, `jp` does not | 2/25 |
+| `jp` resolves, `bm25` does not | 0/25 |
+| all four arms resolve | 21/25 |
+| only `none` resolves | 0/25 |
 
 ### Per-task outcomes
 
 | task | `none` | `chunk-bm25` | `bm25` | `jp` |
 |------|--------|--------------|--------|------|
 | ✓ ktlint-2029 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
-| ✓ ktlint-2053 | NOT_APPLIED | NOT_APPLIED | NO_ANSWER | NO_ANSWER |
-| … ktlint-2091 | NO_ANSWER | NO_ANSWER | RESOLVED | — |
-|   ktlint-2127 | — | — | — | — |
-|   ktlint-2134 | — | — | — | — |
-|   ktlint-2141 | — | — | — | — |
-|   ktlint-2193 | — | — | — | — |
-|   ktlint-2216 | — | — | — | — |
-|   ktlint-2263 | — | — | — | — |
-|   ktlint-2273 | — | — | — | — |
-|   ktlint-2275 | — | — | — | — |
-|   ktlint-2287 | — | — | — | — |
-|   ktlint-2300 | — | — | — | — |
-|   ktlint-2362 | — | — | — | — |
-|   ktlint-2365 | — | — | — | — |
-|   ktlint-2375 | — | — | — | — |
-|   ktlint-2381 | — | — | — | — |
-|   ktlint-2386 | — | — | — | — |
-|   ktlint-2395 | — | — | — | — |
-|   ktlint-2400 | — | — | — | — |
-|   ktlint-2405 | — | — | — | — |
-|   ktlint-2407 | — | — | — | — |
-|   ktlint-2431 | — | — | — | — |
-|   ktlint-2432 | — | — | — | — |
-|   ktlint-2442 | — | — | — | — |
-|   ktlint-2493 | — | — | — | — |
-|   ktlint-2505 | — | — | — | — |
-|   ktlint-2516 | — | — | — | — |
-|   ktlint-2541 | — | — | — | — |
-|   ktlint-2553 | — | — | — | — |
-|   ktlint-2554 | — | — | — | — |
-|   ktlint-2555 | — | — | — | — |
-|   ktlint-2617 | — | — | — | — |
-|   ktlint-2715 | — | — | — | — |
-|   ktlint-2727 | — | — | — | — |
-|   ktlint-2774 | — | — | — | — |
-|   ktlint-2785 | — | — | — | — |
+| … ktlint-2053 | — | — | UNRESOLVED | — |
+| … ktlint-2091 | — | RESOLVED | RESOLVED | UNRESOLVED |
+| … ktlint-2127 | — | UNRESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2134 | RESOLVED | RESOLVED | RESOLVED | UNRESOLVED |
+| ✓ ktlint-2141 | UNRESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2193 | RESOLVED | — | RESOLVED | RESOLVED |
+| … ktlint-2216 | — | — | — | RESOLVED |
+| ✓ ktlint-2263 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2273 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2275 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2287 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2300 | RESOLVED | RESOLVED | RESOLVED | UNRESOLVED |
+| ✓ ktlint-2362 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2365 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2375 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2381 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2386 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2395 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2400 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2405 | — | RESOLVED | — | — |
+| ✓ ktlint-2407 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2431 | — | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2432 | — | RESOLVED | RESOLVED | UNRESOLVED |
+| ✓ ktlint-2442 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2493 | — | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2505 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2516 | — | — | UNRESOLVED | UNRESOLVED |
+| ✓ ktlint-2541 | UNRESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2553 | — | UNRESOLVED | RESOLVED | — |
+| ✓ ktlint-2554 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2555 | — | UNRESOLVED | — | — |
+| ✓ ktlint-2617 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2715 | — | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2727 | — | RESOLVED | — | — |
+| ✓ ktlint-2774 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| … ktlint-2785 | — | RESOLVED | — | — |
 |   ktlint-2823 | — | — | — | — |
-|   ktlint-2873 | — | — | — | — |
-|   ktlint-2891 | — | — | — | — |
-|   ktlint-2895 | — | — | — | — |
-|   ktlint-2950 | — | — | — | — |
+| … ktlint-2873 | RESOLVED | RESOLVED | RESOLVED | — |
+| ✓ ktlint-2891 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2895 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
+| ✓ ktlint-2950 | RESOLVED | RESOLVED | RESOLVED | RESOLVED |
 |   ktlint-2983 | — | — | — | — |
 
 ### Not yet complete
 
 | task | status |
 |------|--------|
-| ktlint-2091 | partial — missing `jp` |
-| ktlint-2127 | not started |
-| ktlint-2134 | not started |
-| ktlint-2141 | not started |
-| ktlint-2193 | not started |
-| ktlint-2216 | not started |
-| ktlint-2263 | not started |
-| ktlint-2273 | not started |
-| ktlint-2275 | not started |
-| ktlint-2287 | not started |
-| ktlint-2300 | not started |
-| ktlint-2362 | not started |
-| ktlint-2365 | not started |
-| ktlint-2375 | not started |
-| ktlint-2381 | not started |
-| ktlint-2386 | not started |
-| ktlint-2395 | not started |
-| ktlint-2400 | not started |
-| ktlint-2405 | not started |
-| ktlint-2407 | not started |
-| ktlint-2431 | not started |
-| ktlint-2432 | not started |
-| ktlint-2442 | not started |
-| ktlint-2493 | not started |
-| ktlint-2505 | not started |
-| ktlint-2516 | not started |
-| ktlint-2541 | not started |
-| ktlint-2553 | not started |
-| ktlint-2554 | not started |
-| ktlint-2555 | not started |
-| ktlint-2617 | not started |
-| ktlint-2715 | not started |
-| ktlint-2727 | not started |
-| ktlint-2774 | not started |
-| ktlint-2785 | not started |
+| ktlint-2053 | partial — missing `none`, `chunk-bm25`, `jp` |
+| ktlint-2091 | partial — missing `none` |
+| ktlint-2127 | partial — missing `none` |
+| ktlint-2193 | partial — missing `chunk-bm25` |
+| ktlint-2216 | partial — missing `none`, `chunk-bm25`, `bm25` |
+| ktlint-2405 | partial — missing `none`, `bm25`, `jp` |
+| ktlint-2431 | partial — missing `none` |
+| ktlint-2432 | partial — missing `none` |
+| ktlint-2493 | partial — missing `none` |
+| ktlint-2516 | partial — missing `none`, `chunk-bm25` |
+| ktlint-2553 | partial — missing `none`, `jp` |
+| ktlint-2555 | partial — missing `none`, `bm25`, `jp` |
+| ktlint-2715 | partial — missing `none` |
+| ktlint-2727 | partial — missing `none`, `bm25`, `jp` |
+| ktlint-2785 | partial — missing `none`, `bm25`, `jp` |
+| ktlint-2873 | partial — missing `jp` |
 | ktlint-2823 | not started |
-| ktlint-2873 | not started |
-| ktlint-2891 | not started |
-| ktlint-2895 | not started |
-| ktlint-2950 | not started |
 | ktlint-2983 | not started |
 <!-- KTLINT_L2_END -->
 
-### Reading ktlint (template — fill when 43/43 complete)
+### Reading ktlint
 
-**Do not fill until the ledger has all 43 tasks × 4 arms.** Use `scripts/update-level2-doc.sh ktlint`
-for the table, then replace this section.
+**Status:** incomplete. As of the last ledger refresh, **25 of 43** certified tasks have all four
+arms scored; the rest are partial or not started (see the auto-generated table above).
 
-**Decision tree after ktlint completes:**
+**On the 25 complete tasks:** `none` 23/25 (92%), `chunk-bm25` 25/25, `bm25` 25/25, `jp` 23/25.
+The floor is high. Declaration BM25 and chunk-RAG match or beat the full engine on this subset.
+That matches the Level-1 picture that ktlint issues often name behaviour rather than a short list
+of edit sites, and that graph expansion is not a free win at patch time.
 
-| If… | Then write… |
-|-----|-------------|
-| `jp` resolved >> `bm25` >> `none` (e.g. +10 pts on `jp`) | Level-1 recall gap **carries to patches** on the hard suite; graph expansion pays at patch time |
-| `bm25` ≈ `jp` >> `none` | Declaration retrieval helps; **graph expansion does not** add patch success on ktlint |
-| All arms ≈ `none` (high floor) | Same shape as detekt — issues/rules carry enough signal; packs matter less at 4k |
-| `none` often best | Retrieval **hurts** or adds noise — investigate pack content on those tasks |
-| Many `NO_ANSWER` / `NOT_APPLIED` | Report delivery failure rate separately; do not treat as verifier losses |
-
-**Compare to detekt (20/20, bodies-only):** detekt `bm25` 16/20, `jp` 14/20, floor 14/20. ktlint Level-1
-has **lower recall and deeper gold ranks** — if `jp` wins here after losing on detekt, that supports
-“engine helps when keyword seeds miss.” If `bm25` wins again, prefer “declaration retrieval > graph”
-as the L2 story.
-
-**Placeholder summary (update counts):**
-
-| arm | resolved | notes |
-|-----|----------|-------|
-| `none` | _/_ | floor |
-| `chunk-bm25` | _/_ | chunk-RAG baseline |
-| `bm25` | _/_ | declaration BM25 |
-| `jp` | _/_ | full engine |
+**Limits:** no finished 43/43 table, no cross-repository Level-2 rate, same bodies-only /
+unpinned-model caveats as detekt. Resume tooling lives under `scripts/resume-ktlint-l2.sh` and
+`scripts/resume-ktlint-l2-watch.sh` if the ledger is extended later.
 
 Everything below was fixed before the first run, which is the point of writing it down first.
 

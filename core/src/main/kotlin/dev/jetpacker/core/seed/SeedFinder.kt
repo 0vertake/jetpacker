@@ -112,6 +112,9 @@ class SeedFinder(
     /**
      * A declaration's searchable text. The name is repeated so that matching what something is
      * called outranks matching its package or a word in its doc.
+     *
+     * Signature/path/body fields were tried (knowing/scalps-style) and hurt ktlint BM25 recall
+     * by 4–7 points; [Symbol.identifiers] stays on the index for a later measured attempt.
      */
     private fun documentOf(symbol: Symbol): List<String> =
         terms(symbol.name) + terms(symbol.name) + terms(symbol.fqName) + terms(symbol.doc.orEmpty())
