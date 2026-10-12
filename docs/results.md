@@ -328,7 +328,7 @@ signatures grouped by file, so a gold signature can land far down a long section
 concrete thing to fix that the previous metrics could not see. It is left open rather than tuned
 away, because whether pack position matters at all is a Level-2 question.
 
-## Level 2 (patch success, partial)
+## Level 2 (patch success)
 
 Level 1 numbers above ask whether the pack *contains* gold declarations. Level 2 asks whether a
 better pack produces a better *patch* — one model, one shot, verifier decides. Full method and
@@ -336,27 +336,27 @@ tables: [`docs/level2.md`](level2.md).
 
 ### Detekt (complete, 20/20, bodies-only 4k)
 
+Ledger refreshed 2026-09-14 (`~/.jetpacker-l2/level2.tsv`):
+
 | arm | resolved |
 |-----|----------|
-| `none` | 14/20 (70%) |
-| `chunk-bm25` | 14/20 (70%) |
-| **`bm25`** | **16/20 (80%)** |
-| `jp` | 14/20 (70%) |
+| `none` | 16/20 (80%) |
+| `chunk-bm25` | 17/20 (85%) |
+| `bm25` | 19/20 (95%) |
+| `jp` | 20/20 (100%) |
 
-Most detekt fixes resolve from the issue alone at this budget. **`bm25` leads by two tasks** over
-the engine and chunk-RAG; graph expansion did not beat flat declaration BM25 on this slice. Four
-tasks needed retrieval when the floor failed; **5009** is the only case where **`jp` alone**
-resolved (rule + test spec in one pack). Thirteen of eighty arms are `NO_ANSWER` (API/model
-delivery) — do not read those as wrong fixes.
+The no-context floor is already high. Absolute rates are close across retrieval arms; this slice
+does not show a large gap between declaration BM25 and the full engine. One repository,
+**bodies-only** packing (not the shipped 15% body share), unpinned `composer-2.5` — not a Kotlin
+Benchmark leaderboard score.
 
-This is **one repository**, **bodies-only** packing (not the shipped 15% body share), and an
-unpinned `composer-2.5` agent — not a Kotlin Benchmark leaderboard score.
+### Ktlint (incomplete)
 
-### Ktlint (in progress, 43 tasks)
-
-Harder Level-1 regime (38.5% recall@4k vs 70.8% on detekt). Running under
-`scripts/resume-ktlint-l2.sh` with auto-resume (`scripts/resume-ktlint-l2-watch.sh`). **Do not
-quote ktlint or cross-repo L2 win rates until 43/43 tasks finish.**
+Harder Level-1 regime (38.5% recall@4k vs 70.8% on detekt). As of the same refresh, **25 of 43**
+certified tasks have all four arms scored (`~/.jetpacker-l2-ktlint/level2.tsv`). On that complete
+subset the floor is again high (`none` 23/25); `bm25` and `chunk-bm25` are 25/25; `jp` is 23/25.
+The remaining tasks are partial or not started. No cross-repository Level-2 win rate is published
+from this ledger.
 
 ## Is resolution worth it?
 

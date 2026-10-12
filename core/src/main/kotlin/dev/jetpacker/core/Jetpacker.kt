@@ -34,8 +34,9 @@ class Jetpacker(
 
     override fun pack(task: String, budget: Int): Pack {
         val protected = seedFinder.search(task, seeds, testPenalty).map { index.symbols[it].id }
+        val lexical = seedFinder.search(task, LEXICAL_RESERVE, testPenalty).map { index.symbols[it].id }
         return Packer(index, repoRoot, budget, fullTierShare, testShare)
-            .pack(ranked(task), protected)
+            .pack(ranked(task), protected, lexical)
     }
 
     /** The ranking before the budget is applied — what diagnostics need to separate the stages. */
@@ -43,6 +44,9 @@ class Jetpacker(
 
     companion object {
         const val DEFAULT_SEEDS = 20
+
+        /** BM25 hits reserved before graph stubs. Deeper than [DEFAULT_SEEDS], which only seed the walk. */
+        const val LEXICAL_RESERVE = 400
 
         /**
          * Reads the build and indexes the sources. Slow on a cold cache; a later call on the

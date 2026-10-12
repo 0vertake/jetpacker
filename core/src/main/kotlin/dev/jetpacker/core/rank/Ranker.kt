@@ -16,19 +16,19 @@ data class Ranked(val symbol: Symbol, val score: Double, val why: String)
  * Every value is a starting guess; these are exactly the knobs the ablation table exists to
  * settle (docs/plan.md §5), so they are data rather than constants buried in the walk.
  *
- * Reverse weights are not smaller than forward ones by accident. Given a relevant interface
- * method, its *implementations* are usually the code that needs changing — that is the
- * Spring-style injection case where surface-name tooling picks wrong.
+ * Implementation edges default to zero. The ktlint ablation (`jp:-impls`) matched or beat the
+ * old default at every budget with the same edit-site, so they stay extractable but do not
+ * walk unless a caller turns them on.
  */
 data class EdgeWeights(
     val calls: Double = 1.0,
     val calledBy: Double = 1.0,
     val contains: Double = 0.5,
     val containedBy: Double = 1.0,
-    val extends: Double = 0.8,
-    val extendedBy: Double = 1.0,
-    val overrides: Double = 0.8,
-    val overriddenBy: Double = 1.0,
+    val extends: Double = 0.0,
+    val extendedBy: Double = 0.0,
+    val overrides: Double = 0.0,
+    val overriddenBy: Double = 0.0,
     val sameFile: Double = 1.0,
     // Default 0.0: ablation decides whether these earn a nonzero weight (docs/plan.md §5).
     val imports: Double = 0.0,
@@ -43,9 +43,8 @@ data class EdgeWeights(
 /**
  * Spreads seed relevance across the graph with personalized PageRank.
  *
- * PPR rather than the bounded depth-2 traversal of §4 because it subsumes it: distance decay
- * falls out of the damping factor, and a symbol reached by many weak paths correctly outranks one
- * reached by a single weak path — which a depth cutoff cannot express.
+ * A one-hop fuse was tried (CodeRAG-style) and regressed on ktlint: gold reachability dropped
+ * 43→35 and every edge ablation went flat. Multi-hop PPR is what makes gold reachable here.
  */
 class Ranker(
     private val index: CodeIndex,

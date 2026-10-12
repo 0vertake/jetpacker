@@ -156,7 +156,8 @@ private fun retrievers(snapshot: Snapshot, embedder: Embedder?): List<Retriever>
 private fun edgeAblations(snapshot: Snapshot): List<Retriever> = listOf(
     "-calls" to EdgeWeights(calls = 0.0, calledBy = 0.0),
     "-callers" to EdgeWeights(calledBy = 0.0),
-    "-impls" to EdgeWeights(extends = 0.0, extendedBy = 0.0, overrides = 0.0, overriddenBy = 0.0),
+    // Default is already 0 after the ktlint table. Turning them back on is the contrast.
+    "+impls" to EdgeWeights(extends = 0.8, extendedBy = 1.0, overrides = 0.8, overriddenBy = 1.0),
     "-contains" to EdgeWeights(contains = 0.0, containedBy = 0.0),
     "-samefile" to EdgeWeights(sameFile = 0.0),
     // §4 candidates: do import-level or type-reference edges add recall on top of resolved calls?

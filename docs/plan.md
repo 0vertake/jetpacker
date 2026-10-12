@@ -1,18 +1,22 @@
 # PSI Context Packer — Research & Build Plan
 
-*Working name ideas: `packrat`, `briefcase`, `kontext`, `psi-pack`. Pick later; the eval matters, not the name.*
+*Working name: Jetpacker. The eval matters more than the name.*
 
 ## 1. One-liner
 
 A Kotlin engine that builds a **token-budgeted context pack** for AI coding agents from **compiler-grade code structure** (Kotlin Analysis API / PSI): resolved symbols, callers, implementations, type hierarchies, and affected tests — instead of similar-looking text chunks. Shipped as a CLI + MCP server, validated by a **published benchmark** against chunk-RAG and a tree-sitter/Aider-style baseline.
 
-**The eval is the product.** The pack engine is how you get the numbers.
+**The eval is the product.** The pack engine is how the numbers are produced.
 
 ---
 
 ## 2. Thesis and evidence (why this is worth building)
 
-The claim: for resolve-heavy Java/Kotlin tasks, deterministic structural retrieval beats similarity search, and compiler-grade resolution beats surface-level (tree-sitter) structure.
+The claim under test: for resolve-heavy Java/Kotlin tasks, deterministic structural retrieval
+beats similarity search, and compiler-grade resolution beats surface-level (tree-sitter) structure.
+Level 1 supports the first half against *chunk* RAG and name-matched edges; it does **not** show
+that graph expansion reliably beats declaration-level BM25, and Level 2 does not show that a better
+pack produces a better patch (see §10 and [`docs/results.md`](results.md)).
 
 Evidence collected (keep these for the README/related-work section):
 
@@ -25,10 +29,12 @@ Evidence collected (keep these for the README/related-work section):
 
 The open wedge nobody has published: **compiler-resolved (PSI/Analysis API) packing vs tree-sitter packing, ablated on a fixed Kotlin/Java suite.** Kotlin's strengths make the gap visible: extension functions, interface injection (Spring), overloads, `expect/actual`, synthetic accessors — cases where surface-name graphs mislead.
 
-### What NOT to claim
+### Limits of the claim
 - Not "first structural context tool" (Aider, Serena, LocAgent, spy-code, knowing, ContextOS exist).
 - Not "beats Cursor/Claude Code" — different category (one-shot pack vs interactive agent).
-- Claim only what the table shows: PSI pack vs chunk RAG vs tree-sitter pack, same model, same budget, fixed suite.
+- Not "graph expansion beats BM25" as a universal result — suite- and budget-dependent (see results).
+- Not "better packs produce better patches" — Level 2 has not established that.
+- Publish only what the tables show: same budget, same harness, fixed suite.
 
 ---
 
@@ -177,7 +183,9 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 - ⬜ Deferred, not blockers:
   - Whether AA 2.3.20 handles 2.4-only language features (fixtures are version-neutral). Pinned pair: AA 2.3.20 + IntelliJ platform 251.27812.49.
   - Dump to SQLite (was listed here; it is really the Phase 1 indexer's job).
-- **Kill-test:** if standalone AA can't resolve reliably on a real Gradle multi-module repo within the week, pivot delivery to running the engine inside IntelliJ headless (`idea.headless` / plugin + CLI runner) — same project, different host. Do not pivot to tree-sitter; that erases the wedge.
+- **Kill-test:** if standalone AA cannot resolve reliably on a real Gradle multi-module repo within
+  the week, pivot delivery to IntelliJ-headless (`idea.headless` / plugin + CLI runner) — same
+  project, different host. Tree-sitter is not an acceptable fallback; that erases the wedge.
 
 **Phase 1 — Index + seeds (weeks 2–3)**
 - ✅ Indexer: whole declarations with file/line ranges, signature, doc line and token cost; four edge kinds (`contains`, `calls`, `extends`, `overrides`). On detekt: 11,931 symbols and 43,704 edges in ~1 min.
@@ -227,35 +235,43 @@ Honesty rule: publish the cases where tree-sitter ties or wins too (pure keyword
 
 ---
 
-## 10. CV bullets (filled from Level 1; Level 2 partial)
+## 10. CV bullets
 
-Do not quote a Kotlin Benchmark *score*, a patch-resolved % across the full suite, or “105 tasks”.
-97 of 105 issue tasks run at Level 1. **Level 2:** detekt complete (20/20, bodies-only 4k);
-ktlint in progress (43 tasks) — see [`docs/level2.md`](level2.md). Numbers below are Recall@4k of
-gold *declarations* (issue text), `jp:default` unless named, from [`docs/results.md`](results.md).
+Numbers are gold-declaration Recall@4k from issue text (`jp:default`), Level 1 on 97 / 105 Kotlin
+Benchmark tasks, from [`docs/results.md`](results.md). Level 2 method and tables:
+[`docs/level2.md`](level2.md).
+
+**Long form**
 
 > **Jetpacker** — Kotlin engine that builds token-budgeted context packs for coding agents from
 > compiler-resolved structure (Kotlin Analysis API / PSI): seeds → typed call graph → personalized
-> PageRank → density knapsack. Shipped as `packer pack` and an MCP server (`packer serve`).
-> Benchmarked on 97 / 105 tasks of JetBrains’ Kotlin Benchmark plus 60 mined detekt commits,
-> against BM25, 40-line chunk RAG (BM25 and `all-MiniLM-L6-v2`), and an Aider-style repo map.
-> At 4k tokens, whole-declaration retrieval more than doubles chunk-RAG on detekt (70.8% vs 34.1%
-> gold-symbol recall) and leads by a wide margin on ktlint (38.5% vs 5.8%) and ort (51.8% vs 12.4%).
-> Compiler-resolved call edges beat name-matched edges by 1–18 points. Not universal: the engine
-> loses to BM25 on TeXiFy, and to embeddings on dataframe where only 38% of calls resolve.
->
-> **Level 2 (detekt only, partial):** on 20 certified detekt tasks at 4k bodies-only, patch success
-> is 16/20 for declaration BM25 vs 14/20 for the full engine and no-context floor — one repository,
-> unpinned model; ktlint L2 pending before any patch-success claim generalizes.
+> PageRank → density knapsack. Shipped as `packer pack` and an MCP server (`packer serve`) with
+> graph query tools (`callers_of`, `implementations_of`). Benchmarked on 97 / 105 tasks of
+> JetBrains’ Kotlin Benchmark plus 60 mined detekt commits, against BM25, 40-line chunk RAG
+> (BM25 and `all-MiniLM-L6-v2`), and an Aider-style repo map. At 4k tokens, whole-declaration
+> packs more than double chunk-RAG on gold-symbol recall on detekt (70.8% vs 34.1%), ktlint
+> (38.5% vs 5.8%), and ort (51.8% vs 12.4%). Compiler-resolved call edges beat name-matched edges
+> by 1–18 points. Graph expansion beats declaration BM25 on some suites and budgets, not all:
+> on a later ktlint ablation it leads at 2k/4k and trails BM25 at 8k (48.9% vs 50.8%). Named
+> losses: BM25 wins on TeXiFy; embeddings win on dataframe where only ~38% of calls resolve.
+> Level 2 (certified Harbor tasks, bodies-only 4k, `composer-2.5`): on detekt (20/20) the no-context
+> floor is already high and all retrieval arms resolve most tasks; on ktlint the ledger is
+> incomplete (25/43 tasks with all four arms). These runs do not establish that graph expansion
+> improves patch success over declaration BM25 once the issue text is strong.
 
-One-liner:
+**One-liner**
 
-> Built a compiler-grade Kotlin context packer (CLI + MCP) and a published retrieval benchmark on
-> Kotlin-SWE-bench showing whole-declaration packs beat chunk RAG on gold-symbol recall@4k on the
-> main suites, with named loss cases; initial Level-2 patch eval on detekt only (not a full score).
+> Built a Kotlin Analysis API context packer (CLI + MCP) and a retrieval benchmark on
+> Kotlin-SWE-bench: whole-declaration packs beat chunk RAG on gold-symbol recall@4k on the main
+> suites; graph expansion does not reliably beat BM25; a Level-2 patch eval on certified tasks
+> does not show that a better pack produces a better patch.
 
-What not to write: “beats RAG”, “SWE-bench score”, “+X% resolved tasks”, “105 tasks”, “Level 2
-shows a better pack produces a better patch” **until ktlint completes**.
+**Limits of these numbers**
+
+- Not a Kotlin Benchmark leaderboard score, not “105 tasks,” not “+X% resolved issues.”
+- Level 1 measures declaration recall under a token budget, not end-to-end issue resolution.
+- Level 2 uses bodies-only packing (not the shipped 15% body share), one unpinned model, and
+  two repositories; ktlint is unfinished in the published ledger.
 
 ---
 

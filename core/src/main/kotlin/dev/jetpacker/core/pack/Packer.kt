@@ -51,6 +51,8 @@ class Packer(
     private val budget: Int = DEFAULT_BUDGET,
     private val fullTierShare: Double = DEFAULT_FULL_TIER_SHARE,
     private val testShare: Double = DEFAULT_TEST_SHARE,
+    private val lexicalShare: Double = DEFAULT_LEXICAL_SHARE,
+    private val fileShare: Double = DEFAULT_FILE_SHARE,
 ) {
     private val encoding = Encodings.newDefaultEncodingRegistry().getEncoding(EncodingType.CL100K_BASE)
     private val fileCache = HashMap<String, List<String>>()
@@ -58,7 +60,7 @@ class Packer(
     private val members: Map<String, List<String>> = contains.groupBy({ it.from }, { it.to })
     private val owner: Map<String, String> = contains.associate { it.to to it.from }
 
-    fun pack(ranked: List<Ranked>, protected: List<String> = emptyList()): Pack {
+    fun pack(ranked: List<Ranked>, protected: List<String> = emptyList(), lexical: List<String> = protected): Pack {
         val candidates = ranked.take(CANDIDATES)
         // Section titles and the summary line are also tokens the model pays for.
         val overhead = encoding.countTokens(header(budget, budget, candidates.size, index.coverage)) + SECTION_OVERHEAD
@@ -79,6 +81,13 @@ class Packer(
         }
         val bodyCandidates = candidates.filter { lexical(it, protectedSet) }
         byDensity(bodyCandidates, Fidelity.FULL).forEach { selection.consider(it, Fidelity.FULL, fullBudget) }
+        // File-first: one stub per BM25-hit file before deepening. Closes the 8k file-recall gap
+        // where jp stayed in the seed neighborhood while bm25 covered more files.
+        val fileLimit = (spendable * fileShare).toInt()
+        selection.reserveFiles(lexical, candidates, fileLimit)
+        // Remaining lexical slice fills more BM25 hits before graph stubs.
+        val lexicalLimit = (spendable * lexicalShare).toInt()
+        selection.reserve(lexical, candidates, lexicalLimit)
         byDensity(candidates, Fidelity.STUB).forEach { selection.consider(it, Fidelity.STUB, spendable) }
 
         val items = selection.taken.values.sortedWith(
@@ -136,6 +145,35 @@ class Packer(
             taken[id] = item
             group?.let { headed += it }
             spent += cost - refund
+        }
+
+        /** One stub per new file, in BM25 order, until [limit]. Deepening happens later. */
+        fun reserveFiles(ids: List<String>, ranked: List<Ranked>, limit: Int) {
+            if (limit <= 0) return
+            val byId = ranked.associateBy { it.symbol.id }
+            val seen = HashSet<String>()
+            for (id in ids) {
+                if (spent >= limit) return
+                val symbol = index.byId[id] ?: continue
+                if (!seen.add(symbol.file)) continue
+                if (taken.values.any { it.symbol.file == symbol.file }) continue
+                val candidate = byId[id] ?: Ranked(symbol, 0.0, "seed:file")
+                tryAdd(candidate, Fidelity.STUB, limit)
+            }
+        }
+
+        /** Next BM25 hits, as stubs, until [limit] of the budget is lexical. Already packed ids are skipped. */
+        fun reserve(ids: List<String>, ranked: List<Ranked>, limit: Int) {
+            if (limit <= 0) return
+            val byId = ranked.associateBy { it.symbol.id }
+            for (id in ids) {
+                if (spent >= limit) return
+                if (id in taken) continue
+                val candidate = byId[id]
+                    ?: index.byId[id]?.let { Ranked(it, 0.0, "seed:lexical") }
+                    ?: continue
+                tryAdd(candidate, Fidelity.STUB, limit)
+            }
         }
 
         /** Lexical hits the graph might rank below the candidate cap — reserve them before greedy fill. */
@@ -213,6 +251,19 @@ class Packer(
          */
         const val DEFAULT_FULL_TIER_SHARE = 0.15
         const val DEFAULT_TEST_SHARE = 0.1
+
+        /**
+         * Share of the spendable budget filled from the BM25 ranking before graph stubs.
+         * At 2k the top seeds already spend most of this, so expansion still gets the tail.
+         * At 8k it is what stops the pack staying inside the seed neighborhood.
+         */
+        const val DEFAULT_LEXICAL_SHARE = 0.5
+
+        /**
+         * Share spent on one stub per BM25-hit file before deepening into members.
+         * Agentless-style hierarchy: file coverage first, then declaration depth.
+         */
+        const val DEFAULT_FILE_SHARE = 0.25
         const val CANDIDATES = 400
         const val CHARS_PER_TOKEN = 3.6
 

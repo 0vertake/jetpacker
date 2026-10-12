@@ -47,6 +47,50 @@ class PackerProtectedTest {
         assertEquals(Fidelity.STUB, formalItem.fidelity, "graph neighbor should stay a signature")
     }
 
+    @Test
+    fun `later bm25 hits fill the lexical reservation before graph neighbors`() {
+        val root = fixture("greeter")
+        val index = indexOf(root)
+        val greeter = index.byId.getValue("fixture.Greeter")
+        val service = index.byId.getValue("fixture.GreetingService")
+        val formal = index.byId.getValue("fixture.FormalGreeter")
+        val packer = Packer(index, root, budget = 800, fullTierShare = 0.15, lexicalShare = 0.7)
+
+        val pack = packer.pack(
+            ranked = listOf(Ranked(formal, 10.0, "caller-of:GreetingService")),
+            protected = listOf(greeter.id),
+            lexical = listOf(greeter.id, service.id),
+        )
+
+        assertTrue(
+            pack.items.any { it.symbol.id == service.id },
+            "the next BM25 hit must take the reserved slice, got ${pack.items.map { it.symbol.id }}",
+        )
+        assertEquals(Fidelity.STUB, pack.items.single { it.symbol.id == service.id }.fidelity)
+    }
+
+    @Test
+    fun `file reservation packs one stub per bm25-hit file`() {
+        val root = fixture("greeter")
+        val index = indexOf(root)
+        val greeter = index.byId.getValue("fixture.Greeter")
+        val service = index.byId.getValue("fixture.GreetingService")
+        // FormalGreeter is in the same file as Greeter in this fixture? Check — if same file, pick another.
+        val packer = Packer(index, root, budget = 400, fullTierShare = 0.0, lexicalShare = 0.0, fileShare = 0.9)
+
+        val pack = packer.pack(
+            ranked = emptyList(),
+            protected = emptyList(),
+            lexical = listOf(greeter.id, service.id),
+        )
+
+        val files = pack.items.map { it.symbol.file }.toSet()
+        assertTrue(
+            greeter.file in files && service.file in files,
+            "file-first must cover both BM25 files, got ${pack.items.map { it.symbol.id to it.symbol.file }}",
+        )
+    }
+
     private companion object {
         fun fixture(name: String): Path =
             Path.of(requireNotNull(PackerProtectedTest::class.java.getResource("/fixtures/$name")).toURI())

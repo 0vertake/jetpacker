@@ -12,8 +12,9 @@ enum class SymbolKind { CLASS, INTERFACE, OBJECT, FUNCTION, CONSTRUCTOR, PROPERT
  * [id] is signature-derived rather than the FQN, so overloads are distinct nodes; keying on
  * FQNs would silently merge `format(Int)` and `format(String)` into one.
  *
- * The body text is deliberately absent: [tokens] is all the packer needs to make budget
- * decisions, and re-reading [file] at pack time keeps a whole-repo index small.
+ * Body source is not stored: [tokens] is enough for budget decisions, and the packer re-reads
+ * [file] for FULL fidelity. [identifiers] is the CamelCase-split token bag from the body, kept
+ * so BM25 can match issue vocabulary that never appears in the name or signature.
  */
 @Serializable
 data class Symbol(
@@ -28,6 +29,8 @@ data class Symbol(
     val doc: String?,
     val tokens: Int,
     val isTest: Boolean,
+    /** Space-separated body identifiers for BM25; empty on indexes built before schema 5. */
+    val identifiers: String = "",
 )
 
 /**

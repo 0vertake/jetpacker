@@ -69,22 +69,21 @@ always produce a byte-identical pack.
 
 ## Why
 
-Vector RAG retrieves text that *looks like* the task. Coding tasks need code
-that is *connected to* the task: the callers of the function you're changing,
-the implementations of the interface you're touching, the tests that will
-break. The hypothesis — backed by recent retrieval literature — is that
-compiler-resolved structural packing beats chunk RAG *and* surface-level
-(tree-sitter) structural packing on resolve-heavy Kotlin/Java tasks.
+Vector RAG retrieves text that *looks like* the task. Coding tasks often need code that is
+*connected to* the task: callers of the function being changed, implementations of an interface,
+tests that will break. The project tests whether compiler-resolved structural packing beats
+chunk RAG and surface-level (tree-sitter) structural packing on resolve-heavy Kotlin tasks.
 
-**The benchmark is the deliverable.** See [`docs/results.md`](docs/results.md) for
-what it currently says and what it does not, and [`docs/plan.md`](docs/plan.md)
-for the full research and build plan.
+**The benchmark is the deliverable.** See [`docs/results.md`](docs/results.md) for what the
+tables show and what they do not, [`docs/level2.md`](docs/level2.md) for patch-success runs, and
+[`docs/plan.md`](docs/plan.md) for the research plan. Analysis API wiring notes live in
+[`docs/analysis-api.md`](docs/analysis-api.md).
 
 ## Status
 
-The pipeline runs end to end and the Level-1 benchmark is wired up. On the 28
-detekt tasks of JetBrains' [Kotlin Benchmark](https://github.com/Kotlin/kotlin-swe-bench),
-scored from the issue text alone, recall of the declarations each fix changed:
+The pipeline runs end to end. On the 28 detekt tasks of JetBrains'
+[Kotlin Benchmark](https://github.com/Kotlin/kotlin-swe-bench), scored from the issue text alone,
+recall of the declarations each fix changed:
 
 | | 1k | 2k | 4k | 8k |
 |---|----|----|----|----|
@@ -95,42 +94,29 @@ scored from the issue text alone, recall of the declarations each fix changed:
 | Aider-style repo map | 0.7% | 0.7% | 1.4% | 1.4% |
 | Same seeds, no graph expansion | 29.9% | 44.6% | 57.7% | 66.5% |
 
-Retrieving whole declarations instead of windows is worth more than any ranking
-change: BM25 over declarations beats BM25 over windows on every suite, while
-swapping in a local `all-MiniLM-L6-v2` over the *same* windows costs 5–20 points
-on four suites and gains 8–27 on the other two — dense-versus-sparse depends on
-the repository, the retrieval unit does not. Structural expansion is worth
-10–23 points over the seeds alone. The
-same ordering holds on ktlint's 43 tasks and ort's 12 — where the margin is
-widest, more than double BM25 at 4k — and on 60 tasks mined from detekt's commit
-history. Removing one relation at a time says the callers of a declaration are
-what earns that — worth up to 13.6 points — while implementations and supertypes,
-which the design expected to be the wedge, pay in one column out of six.
+Retrieving whole declarations instead of windows is the largest Level-1 win: BM25 over
+declarations beats BM25 over windows on every suite. Structural expansion is worth 10–23 points
+over seeds alone on detekt. The same ordering holds on ktlint (43 tasks) and ort (12) against
+chunk RAG. Removing one relation at a time says callers earn most of the graph win;
+implementation / supertype edges do not pay on the ktlint ablation and default to weight zero.
 
-**Resolution itself is worth 1 to 17.8 points**, and the margin grows with the
-budget. The same engine over call edges rebuilt from bare names — what a parser
-can produce without a compiler — loses in all twelve repository-and-budget
-columns, and on detekt at 8k it does worse than not expanding the graph at all.
-Following an ambiguous edge is not a weaker version of following a resolved one.
+**Resolution itself is worth 1 to 17.8 points** against name-matched call edges, and the margin
+grows with the budget. On detekt at 8k, following ambiguous name-matched edges is worse than not
+expanding at all.
 
-It does not hold everywhere, in two different ways. On TeXiFy, an IDE plugin whose
-issues describe what a LaTeX user saw rather than any code, the engine loses to
-BM25 at every budget and to its own no-expansion ablation. On dataframe, where
-only 37.6% of call sites resolve — the index flattens a KDoc duplicate of `core`
-into the same Analysis API module — embeddings over 40-line windows beat the
-engine at three budgets of four. Where the graph is thin, plain text similarity
-is the better instrument. Read
-[`docs/results.md`](docs/results.md) before quoting any of this: 97 of the
-suite's 105 tasks run, keyword search still wins below 2k on the smaller
-repositories, and patch success is measured only on detekt so far (see Level 2 below).
+It does not hold everywhere. On TeXiFy, issues describe what a LaTeX user saw rather than code,
+and the engine loses to BM25 at every budget. On dataframe, where only ~38% of call sites resolve,
+embeddings over 40-line windows beat the engine at three budgets of four. Graph expansion also
+does not reliably beat declaration BM25: a later ktlint ablation has `jp:default` ahead at 2k and
+4k and behind at 8k (48.9% vs 50.8%). Read [`docs/results.md`](docs/results.md) before quoting
+any of this — 97 of 105 suite tasks run at Level 1.
 
-Level 2 is built — judge, certified tasks, arms, prompt, leakage audit — in
-[`docs/level2.md`](docs/level2.md). **63 tasks are certified** (20 detekt, 43 ktlint).
-**Detekt L2 is complete** (20/20, bodies-only 4k): `bm25` 16/20 resolved, `jp` 14/20 — see
-[`docs/results.md`](docs/results.md). **Ktlint L2 is running** (43 tasks); resume with
-`scripts/resume-ktlint-l2.sh` under `screen`, or `scripts/resume-ktlint-l2-watch.sh` to
-auto-restart on API failures. Do not quote cross-repo patch-success rates until ktlint finishes.
-CV bullets: [`docs/plan.md`](docs/plan.md) §10 (Level 1 + partial detekt L2).
+**Level 2** (does a better pack produce a better patch?) is documented in
+[`docs/level2.md`](docs/level2.md). Sixty-three Harbor tasks are certified (20 detekt, 43 ktlint).
+Detekt is complete (20/20, bodies-only 4k): high no-context floor; all retrieval arms resolve most
+tasks. Ktlint is incomplete in the ledger (25/43 tasks with all four arms scored). These runs do
+not establish that graph expansion improves patch success over declaration BM25. CV-ready wording:
+[`docs/plan.md`](docs/plan.md) §10.
 
 ## Layout
 
@@ -157,8 +143,11 @@ cli/build/install/packer/bin/packer pack --repo /path/to/project --task task.md 
 ```
 
 Or as an MCP server over stdio, which indexes the repository once at startup and
-then answers `get_context_pack(task, budget)` and `explain_context_pack(task, budget)`
-per request — Markdown briefing, or the same items with `why` and no bodies:
+then answers pack tools and graph queries per request:
+
+- `get_context_pack(task, budget)` / `explain_context_pack(task, budget)` — Markdown briefing,
+  or the same items with `why` and no bodies
+- `callers_of(symbol)` / `implementations_of(symbol)` — resolved graph lookups
 
 ```json
 {
